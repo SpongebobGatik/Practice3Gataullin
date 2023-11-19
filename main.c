@@ -256,6 +256,11 @@ void handle_client(LPVOID lpParam) {
             }
         }
         if (strcmp(argv[temp], "HSET") == 0) {
+            if (key == NULL || item == NULL) {
+                result = malloc(100);
+                sprintf(result, "Error.\n");
+                goto skip;
+            }
             HashTable* hashtable = loadFromFileTable(filename, basename, &pos1, &pos2, &status);
             if (hashtable == NULL) {
                 result = malloc(100);
@@ -294,7 +299,7 @@ void handle_client(LPVOID lpParam) {
                 else {
                     HDEL(hashtable, key);
                     result = malloc(strlen(key) + 5);
-                    printf("-> %s\n", key);
+                    sprintf(result, "-> %s\n", key);
                     if (status == 2) status = 0;
                     fclose(file);
                     saveToFileTable(hashtable, filename, basename, &pos1, &pos2, &status);
@@ -333,6 +338,10 @@ void handle_client(LPVOID lpParam) {
         sprintf(result, "Error.\n");
     }
     skip: {
+    if (result == NULL) {
+        result = malloc(100);
+        sprintf(result, "Error.\n");
+    }
     int bytes_sent = send(client_socket, result, strlen(result), 0);
     closesocket(client_socket);
     free(argv);

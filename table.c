@@ -155,7 +155,7 @@ HashTable* loadFromFileTable(const char* filename, const char* basename, int* po
 		if (feof(file))
 			break;
 	}
-	if (temp1 == temp2) *status = 1;
+	if (temp1 + 1 == temp2) *status = 1;
 	if (temp1 == temp2 + 1) *status = 2;
 	while (temp1 < temp2) {
 		char* value = line[temp1];
