@@ -81,11 +81,6 @@ void handle_client(LPVOID lpParam) {
                     goto skip;
                 }
             }
-            if (key == NULL) {
-                result = malloc(100);
-                sprintf(result, "Error.\n");
-                goto skip;
-            }
         }
     }
     int pos1 = 0;;
@@ -97,6 +92,11 @@ void handle_client(LPVOID lpParam) {
             FILE* file = fopen(filename, "w");
         }
         if (strcmp(argv[temp], "SPUSH") == 0) {
+            if (key == NULL) {
+                result = malloc(100);
+                sprintf(result, "Error.\n");
+                goto skip;
+            }
             Stack* stack = loadFromFileStack(filename, basename, &pos1, &pos2, &status);
             if (stack == NULL) {
                 result = malloc(100);
@@ -143,6 +143,11 @@ void handle_client(LPVOID lpParam) {
             }
         }
         if (strcmp(argv[temp], "SADD") == 0) {
+            if (key == NULL) {
+                result = malloc(100);
+                sprintf(result, "Error.\n");
+                goto skip;
+            }
             Set* set = loadFromFileSet(filename, basename, &pos1, &pos2, &status);
             if (set == NULL) {
                 result = malloc(100);
@@ -166,6 +171,11 @@ void handle_client(LPVOID lpParam) {
             }
         }
         if (strcmp(argv[temp], "SREM") == 0) {
+            if (key == NULL) {
+                result = malloc(100);
+                sprintf(result, "Error.\n");
+                goto skip;
+            }
             Set* set = loadFromFileSet(filename, basename, &pos1, &pos2, &status);
             if (set == NULL) {
                 result = malloc(100);
@@ -189,6 +199,11 @@ void handle_client(LPVOID lpParam) {
             }
         }
         if (strcmp(argv[temp], "SISMEMBER") == 0) {
+            if (key == NULL) {
+                result = malloc(100);
+                sprintf(result, "Error.\n");
+                goto skip;
+            }
             Set* set = loadFromFileSet(filename, basename, &pos1, &pos2, &status);
             if (set == NULL) {
                 result = malloc(100);
@@ -210,6 +225,11 @@ void handle_client(LPVOID lpParam) {
             }
         }
         if (strcmp(argv[temp], "QPUSH") == 0) {
+            if (key == NULL) {
+                result = malloc(100);
+                sprintf(result, "Error.\n");
+                goto skip;
+            }
             Queue* queue = loadFromFileQueue(filename, basename, &pos1, &pos2, &status);
             if (queue == NULL) {
                 result = malloc(100);
@@ -284,6 +304,11 @@ void handle_client(LPVOID lpParam) {
             }
         }
         if (strcmp(argv[temp], "HDEL") == 0) {
+            if (key == NULL) {
+                result = malloc(100);
+                sprintf(result, "Error.\n");
+                goto skip;
+            }
             HashTable* hashtable = loadFromFileTable(filename, basename, &pos1, &pos2, &status);
             if (hashtable == NULL) {
                 result = malloc(100);
@@ -307,6 +332,11 @@ void handle_client(LPVOID lpParam) {
             }
         }
         if (strcmp(argv[temp], "HGET") == 0) {
+            if (key == NULL) {
+                result = malloc(100);
+                sprintf(result, "Error.\n");
+                goto skip;
+            }
             HashTable* hashtable = loadFromFileTable(filename, basename, &pos1, &pos2, &status);
             if (hashtable == NULL) {
                 result = malloc(100);
