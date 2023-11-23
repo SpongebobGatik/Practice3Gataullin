@@ -14,7 +14,8 @@
 #define BACKLOG 10
 #define BUFFER_SIZE 104857600
 
-void handle_client(SOCKET lpParam);
+HANDLE mutex;
+DWORD WINAPI handle_client(LPVOID lpParam);
 
 int main() {
     WSADATA wsa_data;
@@ -27,16 +28,18 @@ int main() {
     result = bind(listen_socket, (struct sockaddr*)&server_address, sizeof(server_address));
     result = listen(listen_socket, BACKLOG);
     printf("The server is running and waiting for connections on port %d\n", PORT);
+    mutex = CreateMutex(NULL, FALSE, NULL);
     while (1) {
         SOCKET client_socket = accept(listen_socket, NULL, NULL);
-        handle_client(client_socket);
+        CreateThread(NULL, 0, handle_client, (LPVOID)client_socket, 0, NULL);
     }
     closesocket(listen_socket);
     WSACleanup();
     return 0;
 }
 
-void handle_client(LPVOID lpParam) {
+DWORD WINAPI handle_client(LPVOID lpParam) {
+    WaitForSingleObject(mutex, INFINITE);
     SOCKET client_socket = (SOCKET)lpParam;
     char* buffer = (char*)malloc(BUFFER_SIZE * sizeof(char));
     int bytes_received;
@@ -367,7 +370,7 @@ void handle_client(LPVOID lpParam) {
         result = malloc(100);
         sprintf(result, "Error.\n");
     }
-    skip: {
+skip: {
     if (result == NULL) {
         result = malloc(100);
         sprintf(result, "Error.\n");
@@ -378,4 +381,5 @@ void handle_client(LPVOID lpParam) {
     free(result);
     free(buffer);
     }
+ReleaseMutex(mutex);
 }

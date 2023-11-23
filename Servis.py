@@ -3,6 +3,9 @@ import random
 import socket
 from flask import Flask, request, redirect
 from flask_cors import CORS
+import time
+import requests
+import datetime
 
 app = Flask(__name__)
 CORS(app)
@@ -69,6 +72,18 @@ def generate_short_url():
 @app.route('/', methods=['POST'])
 def shorten_url():
     url = request.data.decode()
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.connect((SERVER_IP, SERVER_PORT))
+            except Exception as e:
+                return f'Не удалось подключиться к серверу: {str(e)}', 500
+            s.sendall(f'--file urls.data --query HGET short_urls {url}'.encode())
+            existing_url = s.recv(1024).decode()
+            existing_url = existing_url.replace('\n', '').replace('\r', '')
+            if existing_url == "Error.":
+                return 'Error.', 500
+            if existing_url != "-> False":
+                return f'{request.url_root}SU/{existing_url}'
     while True:
         short_url = generate_short_url()
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -76,7 +91,7 @@ def shorten_url():
                 s.connect((SERVER_IP, SERVER_PORT))
             except Exception as e:
                 return f'Не удалось подключиться к серверу: {str(e)}', 500
-            s.sendall(f'--file 2.data --query HGET basename {short_url}'.encode())
+            s.sendall(f'--file urls.data --query HGET urls {short_url}'.encode())
             existing_url = s.recv(1024).decode()
             existing_url = existing_url.replace('\n', '').replace('\r', '')
             if existing_url == "Error.":
@@ -87,10 +102,18 @@ def shorten_url():
                         s.connect((SERVER_IP, SERVER_PORT))
                     except Exception as e:
                         return f'Не удалось подключиться к серверу: {str(e)}', 500
-                    s.sendall(f'--file 2.data --query HSET basename {url} {short_url}'.encode())
+                    s.sendall(f'--file urls.data --query HSET urls {url} {short_url}'.encode())
                     if s.recv(1024).decode().replace('\n', '').replace('\r', '') == "Error.":
                         return 'Error.', 500
-                return f'{request.url_root}SU/{short_url}', 201
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    try:
+                        s.connect((SERVER_IP, SERVER_PORT))
+                    except Exception as e:
+                        return f'Не удалось подключиться к серверу: {str(e)}', 500
+                    s.sendall(f'--file urls.data --query HSET short_urls {short_url} {url}'.encode())
+                    if s.recv(1024).decode().replace('\n', '').replace('\r', '') == "Error.":
+                        return 'Error.', 500
+                return f'{request.url_root}SU/{short_url}'
 
 @app.route('/SU/<short_url>', methods=['GET'])
 def redirect_url(short_url):
@@ -99,14 +122,24 @@ def redirect_url(short_url):
             s.connect((SERVER_IP, SERVER_PORT))
         except Exception as e:
             return f'Не удалось подключиться к серверу: {str(e)}', 500
-        s.sendall(f'--file 2.data --query HGET basename {short_url}'.encode())
+        s.sendall(f'--file urls.data --query HGET urls {short_url}'.encode())
         url = s.recv(1024).decode()
         url = url.replace('\n', '').replace('\r', '')
         if url == "Error.":
             return 'Error.', 500
+    response = requests.post(f'http://{SERVER_IP_PORT}/', json={
+        'ip': request.headers.get('X-Forwarded-For', request.remote_addr),
+        'url': f'{url}_({short_url})',
+        'timestamp': datetime.datetime.now().replace(second=0).replace(microsecond=0).isoformat().replace('T', '_')[:-3]
+    })
+    if response.status_code == 204:
+        print("Запрос успешно обработан.")
+    else:
+        print(f"Произошла ошибка: {response.status_code}")
     return redirect(url, code=302)
 
 if __name__ == '__main__':
-    SERVER_IP, SERVER_PORT = input("Введите IP-адрес и порт сервера (формат: myip:myport): ").split(':')
+    SERVER_IP_PORT = input("Введите IP-адрес и порт сервера статистики (формат: myip:myport): ")
+    SERVER_IP, SERVER_PORT = input("Введите IP-адрес и порт сервера СУБД (формат: myip:myport): ").split(':')
     SERVER_PORT = int(SERVER_PORT)
     app.run(debug=True)
