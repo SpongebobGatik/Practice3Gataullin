@@ -1,0 +1,4 @@
+﻿  main.c
+C:\Users\Ms_Hlopets\source\repos\Project8\main.c(39,27): warning C4028: формальный параметр 1 отличается от объявления
+C:\Users\Ms_Hlopets\source\repos\Project8\main.c(375,50): warning C4267: функция: преобразование из "size_t" в "int"; возможна потеря данных
+  Project8.vcxproj -> C:\Users\Ms_Hlopets\source\repos\Project8\x64\Debug\Project8.exe
