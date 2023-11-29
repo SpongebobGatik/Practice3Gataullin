@@ -38,9 +38,21 @@ int calculateHashS(const char* element) {
     return abs(hash) % MAX_SIZE;
 }
 
+int calculateHash2S(const char* element) {
+    int hash = 0;
+    for (int i = 0; element[i] != '\0'; i++) {
+        hash = 17 * hash + element[i];
+    }
+    return abs(hash) % MAX_SIZE;
+}
+
 void SADD(Set* set, char* element) {
     int hash = calculateHashS(element);
-    if (set->hashTable[hash] != NULL) {
+    int step = calculateHash2S(element);
+    while (set->hashTable[hash] != NULL && strcmp(set->hashTable[hash]->element, element) != 0) {
+        hash = (hash + step) % MAX_SIZE;
+    }
+    if (set->hashTable[hash] != NULL && strcmp(set->hashTable[hash]->element, element) == 0) {
         return;
     }
     Node* newNode = (Node*)malloc(sizeof(Node));
@@ -57,6 +69,10 @@ void SADD(Set* set, char* element) {
 
 void SREM(Set* set, const char* element) {
     int hash = calculateHashS(element);
+    int step = calculateHash2S(element);
+    while (set->hashTable[hash] != NULL && strcmp(set->hashTable[hash]->element, element) != 0) {
+        hash = (hash + step) % MAX_SIZE;
+    }
     if (set->hashTable[hash] != NULL && strcmp(set->hashTable[hash]->element, element) == 0) {
         Node* nodeToRemove = set->hashTable[hash];
         if (nodeToRemove == set->head) {
@@ -80,6 +96,10 @@ void SREM(Set* set, const char* element) {
 
 int SISMEMBER(Set* set, const char* element) {
     int hash = calculateHashS(element);
+    int step = calculateHash2S(element);
+    while (set->hashTable[hash] != NULL && strcmp(set->hashTable[hash]->element, element) != 0) {
+        hash = (hash + step) % MAX_SIZE;
+    }
     if (set->hashTable[hash] != NULL && strcmp(set->hashTable[hash]->element, element) == 0) {
         return 1;
     }
@@ -125,8 +145,8 @@ void saveToFileSet(Set* set, const char* filename, const char* basename, int* po
     free(set);
     fclose(file);
     fclose(tempFile);
-    remove("2.data");
-    rename("temp.data", "2.data");
+    remove(filename);
+    rename("temp.data", filename);
 }
 
 Set* loadFromFileSet(const char* filename, const char* basename, int* pos1, int* pos2, int* status) {

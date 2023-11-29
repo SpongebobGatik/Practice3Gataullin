@@ -1,4 +1,17 @@
 ﻿  main.c
-C:\Users\Ms_Hlopets\source\repos\Project8\main.c(39,27): warning C4028: формальный параметр 1 отличается от объявления
-C:\Users\Ms_Hlopets\source\repos\Project8\main.c(375,50): warning C4267: функция: преобразование из "size_t" в "int"; возможна потеря данных
-  Project8.vcxproj -> C:\Users\Ms_Hlopets\source\repos\Project8\x64\Debug\Project8.exe
+C:\Users\Ms_Hlopets\Desktop\ПР3\Project8\main.c(378,50): warning C4267: функция: преобразование из "size_t" в "int"; возможна потеря данных
+  queue.c
+C:\Users\Ms_Hlopets\Desktop\ПР3\Project8\queue.c(107,28): warning C4267: функция: преобразование из "size_t" в "long"; возможна потеря данных
+  set.c
+C:\Users\Ms_Hlopets\Desktop\ПР3\Project8\set.c(70,33): warning C4028: формальный параметр 2 отличается от объявления
+C:\Users\Ms_Hlopets\Desktop\ПР3\Project8\set.c(97,37): warning C4028: формальный параметр 2 отличается от объявления
+C:\Users\Ms_Hlopets\Desktop\ПР3\Project8\set.c(171,28): warning C4267: функция: преобразование из "size_t" в "long"; возможна потеря данных
+  stack.c
+C:\Users\Ms_Hlopets\Desktop\ПР3\Project8\stack.c(103,29): warning C4267: функция: преобразование из "size_t" в "long"; возможна потеря данных
+  table.c
+C:\Users\Ms_Hlopets\Desktop\ПР3\Project8\table.c(70,39): warning C4028: формальный параметр 2 отличается от объявления
+C:\Users\Ms_Hlopets\Desktop\ПР3\Project8\table.c(77,38): warning C4028: формальный параметр 2 отличается от объявления
+C:\Users\Ms_Hlopets\Desktop\ПР3\Project8\table.c(157,12): warning C4267: =: преобразование из "size_t" в "int"; возможна потеря данных
+  Создание кода...
+C:\Users\Ms_Hlopets\Desktop\ПР3\Project8\main.c(386): warning C4716: handle_client: должна возвращать значение
+  Project8.vcxproj -> C:\Users\Ms_Hlopets\Desktop\ПР3\Project8\x64\Debug\Project8.exe

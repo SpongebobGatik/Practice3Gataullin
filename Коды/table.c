@@ -40,18 +40,29 @@ int calculateHashT(const char* element) {
 
 void HSET(HashTable* ht, char* key, char* value) {
 	int hash = calculateHashT(key);
-	if (ht->hashTable[hash] != NULL) {
-		return;
+	NodeHashTable* current = ht->hashTable[hash];
+	while (current != NULL) {
+		if (strcmp(current->element, value) == 0) {
+			return;
+		}
+		current = current->next;
 	}
 	NodeHashTable* newNode = (NodeHashTable*)malloc(sizeof(NodeHashTable));
 	newNode->element = _strdup(value);
 	newNode->hash = hash;
-	newNode->next = ht->head;
-	if (ht->head != NULL) {
-		ht->head->prev = newNode;
+	newNode->next = NULL;
+	newNode->prev = NULL;
+	if (ht->hashTable[hash] == NULL) {
+		ht->hashTable[hash] = newNode;
 	}
-	ht->head = newNode;
-	ht->hashTable[hash] = newNode;
+	else {
+		current = ht->hashTable[hash];
+		while (current->next != NULL) {
+			current = current->next;
+		}
+		current->next = newNode;
+		newNode->prev = current;
+	}
 	ht->size++;
 	ht->keys[ht->size - 1] = _strdup(key);
 }

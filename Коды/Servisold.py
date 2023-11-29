@@ -70,46 +70,37 @@ def generate_short_url():
 def shorten_url():
     url = request.data.decode()
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            try:
-                s.connect((SERVER_IP, SERVER_PORT))
-            except Exception as e:
-                return f'Не удалось подключиться к серверу: {str(e)}', 500
-            s.sendall(f'--file urls.data --query HGET short_urls {url}'.encode())
-            existing_url = s.recv(1024).decode()
-            existing_url = existing_url.replace('\n', '').replace('\r', '')
-            if existing_url == "Error.":
-                return 'Error.', 500
-            if existing_url != "-> False":
-                return f'{request.url_root}SU/{existing_url}'
-    while True:
-        short_url = generate_short_url()
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            try:
-                s.connect((SERVER_IP, SERVER_PORT))
-            except Exception as e:
-                return f'Не удалось подключиться к серверу: {str(e)}', 500
+        try:
+            s.connect((SERVER_IP, SERVER_PORT))
+        except Exception as e:
+            return f'Не удалось подключиться к серверу: {str(e)}', 500
+        s.sendall(f'--file urls.data --query HGET short_urls {url}'.encode())
+        existing_url = s.recv(1024).decode()
+        existing_url = existing_url.replace('\n', '').replace('\r', '')
+        if existing_url == "Error.":
+            s.close()
+            return 'Error.', 501
+        if existing_url != "-> False":
+            s.close()
+            return f'{request.url_root}SU/{existing_url}'
+        while True:
+            short_url = generate_short_url()
             s.sendall(f'--file urls.data --query HGET urls {short_url}'.encode())
             existing_url = s.recv(1024).decode()
             existing_url = existing_url.replace('\n', '').replace('\r', '')
             if existing_url == "Error.":
-                return 'Error.', 500
+                s.close()
+                return 'Error.', 502
             if existing_url == "-> False":
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    try:
-                        s.connect((SERVER_IP, SERVER_PORT))
-                    except Exception as e:
-                        return f'Не удалось подключиться к серверу: {str(e)}', 500
-                    s.sendall(f'--file urls.data --query HSET urls {url} {short_url}'.encode())
-                    if s.recv(1024).decode().replace('\n', '').replace('\r', '') == "Error.":
-                        return 'Error.', 500
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    try:
-                        s.connect((SERVER_IP, SERVER_PORT))
-                    except Exception as e:
-                        return f'Не удалось подключиться к серверу: {str(e)}', 500
-                    s.sendall(f'--file urls.data --query HSET short_urls {short_url} {url}'.encode())
-                    if s.recv(1024).decode().replace('\n', '').replace('\r', '') == "Error.":
-                        return 'Error.', 500
+                s.sendall(f'--file urls.data --query HSET urls {url} {short_url}'.encode())
+                if s.recv(1024).decode().replace('\n', '').replace('\r', '') == "Error.":
+                    s.close()
+                    return 'Error.', 503
+                s.sendall(f'--file urls.data --query HSET short_urls {short_url} {url}'.encode())
+                if s.recv(1024).decode().replace('\n', '').replace('\r', '') == "Error.":
+                    s.close()
+                    return 'Error.', 504
+                s.close()
                 return f'{request.url_root}SU/{short_url}'
 
 @app.route('/SU/<short_url>', methods=['GET'])
@@ -118,12 +109,14 @@ def redirect_url(short_url):
         try:
             s.connect((SERVER_IP, SERVER_PORT))
         except Exception as e:
-            return f'Не удалось подключиться к серверу: {str(e)}', 500
+            return f'Не удалось подключиться к серверу: {str(e)}', 505
         s.sendall(f'--file urls.data --query HGET urls {short_url}'.encode())
         url = s.recv(1024).decode()
         url = url.replace('\n', '').replace('\r', '')
         if url == "Error.":
-            return 'Error.', 500
+            s.close()
+            return 'Error.', 506
+        s.close()
     return redirect(url, code=302)
 
 if __name__ == '__main__':

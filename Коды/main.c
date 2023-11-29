@@ -43,7 +43,7 @@ DWORD WINAPI handle_client(LPVOID lpParam) {
     SOCKET client_socket = (SOCKET)lpParam;
     char* buffer = (char*)malloc(BUFFER_SIZE * sizeof(char));
     int bytes_received;
-    bytes_received = recv(client_socket, buffer, BUFFER_SIZE, 0);
+    while ((bytes_received = recv(client_socket, buffer, BUFFER_SIZE, 0)) > 0) {
     buffer[bytes_received] = '\0';
     char** argv = NULL;
     int argc = 0;
@@ -370,16 +370,17 @@ DWORD WINAPI handle_client(LPVOID lpParam) {
         result = malloc(100);
         sprintf(result, "Error.\n");
     }
-skip: {
+    skip: {
     if (result == NULL) {
         result = malloc(100);
         sprintf(result, "Error.\n");
     }
     int bytes_sent = send(client_socket, result, strlen(result), 0);
-    closesocket(client_socket);
+    }
     free(argv);
     free(result);
-    free(buffer);
     }
-ReleaseMutex(mutex);
+    free(buffer);
+    closesocket(client_socket);
+    ReleaseMutex(mutex);
 }
