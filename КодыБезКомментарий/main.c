@@ -16,6 +16,7 @@
 
 HANDLE mutex;
 DWORD WINAPI handle_client(LPVOID lpParam);
+void removeNewline(char* str);
 
 int main() {
     WSADATA wsa_data;
@@ -83,9 +84,13 @@ DWORD WINAPI handle_client(LPVOID lpParam) {
                     sprintf(result, "Error.\n");
                     goto skip;
                 }
+                removeNewline(key);
+                removeNewline(item);
             }
+            if (key != NULL) removeNewline(key);
         }
     }
+    removeNewline(basename);
     int pos1 = 0;;
     int pos2 = 0;;
     int status = 0;;
@@ -383,4 +388,11 @@ DWORD WINAPI handle_client(LPVOID lpParam) {
     free(buffer);
     closesocket(client_socket);
     ReleaseMutex(mutex);
+}
+
+void removeNewline(char* str) {
+    if (str != NULL) {
+        size_t length = strcspn(str, "\n");
+        str[length] = '\0';
+    }
 }

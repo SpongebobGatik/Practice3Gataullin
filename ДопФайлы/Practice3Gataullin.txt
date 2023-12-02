@@ -1,16 +1,16 @@
-========================================================================================================================================================================================
+==========================================================
 С
-========================================================================================================================================================================================
+==========================================================
 main.c
-========================================================================================================================================================================================
+==========================================================
 #define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h> 
 #include <stdlib.h> 
 #include <string.h> 
-#include "stack.h" // Подключение заголовочного файла для работы со стеком
-#include "set.h" // Подключение заголовочного файла для работы с множеством
-#include "queue.h" // Подключение заголовочного файла для работы с очередью
-#include "table.h" // Подключение заголовочного файла для работы с хеш-таблицей
+#include "stack.h"
+#include "set.h"
+#include "queue.h"
+#include "table.h"
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <windows.h>
@@ -21,6 +21,8 @@ main.c
 
 HANDLE mutex; // Объявление мьютекса
 DWORD WINAPI handle_client(LPVOID lpParam); // Объявление функции обработки клиента
+// Функция удаления символов новой строки \n
+void removeNewline(char* str);
 
 int main() {
     WSADATA wsa_data;
@@ -46,57 +48,66 @@ int main() {
 DWORD WINAPI handle_client(LPVOID lpParam) {
     WaitForSingleObject(mutex, INFINITE); // Получение мьютекса
     SOCKET client_socket = (SOCKET)lpParam; // Получение сокета клиента
-    char* buffer = (char*)malloc(BUFFER_SIZE * sizeof(char)); // Выделение памяти под буфер
+    char* buffer = (char*)malloc(BUFFER_SIZE * sizeof(char));
     int bytes_received;
-    bytes_received = recv(client_socket, buffer, BUFFER_SIZE, 0); // Получение данных от клиента
-    buffer[bytes_received] = '\0';
-    char** argv = NULL;
-    int argc = 0;
-    char* token = strtok(buffer, " "); // Разбиение полученных данных на токены
-    while (token != NULL) {
-        char** temp = realloc(argv, sizeof(char*) * (argc + 1));
-        argv = temp;
-        argv[argc++] = token;
-        token = strtok(NULL, " ");
-    }
-    // Обработка полученных данных и выполнение соответствующих операций
-    char* filename = NULL;
-    char* query = NULL;
-    char* key = NULL;
-    char* basename = NULL;
-    char* item = NULL;
-    int temp;
-    char* result = NULL;
-    if (argc < 4 || argc > 7) {
-        result = malloc(100);
-        sprintf(result, "Error.\n");
-        goto skip;
-    }
-    for (int i = 0; i < argc; i++) {
-        if (strcmp(argv[i], "--file") == 0 && i + 1 < argc) {
-            filename = argv[i + 1];
+    // Получение данных от клиента, пока клиент не закроет подключение
+    while ((bytes_received = recv(client_socket, buffer, BUFFER_SIZE, 0)) > 0) {
+        buffer[bytes_received] = '\0';
+        char** argv = NULL;
+        int argc = 0;
+        char* token = strtok(buffer, " "); // Разбиение полученных данных на токены
+        while (token != NULL) {
+            char** temp = realloc(argv, sizeof(char*) * (argc + 1));
+            argv = temp;
+            argv[argc++] = token;
+            token = strtok(NULL, " ");
         }
-        else if (strcmp(argv[i], "--query") == 0 && i + 1 < argc) {
-            query = argv[i + 1];
-            temp = i + 1;
-            basename = argv[i + 2];
-            if (i + 5 > argc) key = argv[i + 3];
-            else {
-                item = argv[i + 3];
-                key = argv[i + 4];
-                if (key == NULL || item == NULL) {
-                    result = malloc(100);
-                    sprintf(result, "Error.\n");
-                    goto skip;
+        // Обработка полученных данных и выполнение соответствующих операций
+        char* filename = NULL; // Имя файла
+        char* query = NULL;
+        char* key = NULL; // Ключ (Объект)
+        char* basename = NULL; // Имя БД
+        char* item = NULL; // Объект
+        int temp; // Переменная, отвечающая за номер аргумента
+        char* result = NULL;
+        // Проверка количества аргументов
+        if (argc < 4 || argc > 7) {
+            result = malloc(100);
+            sprintf(result, "Error.\n");
+            goto skip;
+        }
+        // Цикл по аргументам
+        for (int i = 0; i < argc; i++) {
+            if (strcmp(argv[i], "--file") == 0 && i + 1 < argc) {
+                filename = argv[i + 1];
+            }
+            else if (strcmp(argv[i], "--query") == 0 && i + 1 < argc) {
+                query = argv[i + 1];
+                temp = i + 1;
+                basename = argv[i + 2];
+                if (i + 5 > argc) key = argv[i + 3];
+                else {
+                    item = argv[i + 3];
+                    key = argv[i + 4];
+                    // Проверка наличия ключа и элемента
+                    if (key == NULL || item == NULL) {
+                        result = malloc(100);
+                        sprintf(result, "Error.\n");
+                        goto skip;
+                    }
+                    removeNewline(key);
+                    removeNewline(item);
                 }
+                if (key != NULL) removeNewline(key);
             }
         }
-    }
-    int pos1 = 0;;
-    int pos2 = 0;;
-    int status = 0;;
-    if (filename != NULL && query != NULL) {
-        FILE* file = fopen(filename, "r");
+        removeNewline(basename);
+        int pos1 = 0; // Переменная, отвечающая за позицию начала строки.
+        int pos2 = 0; // Переменная, отвечающая за позицию конца строки.
+        int status = 0; // Переменная-переключатель.
+        // Обработка каждой команды
+        if (filename != NULL && query != NULL) {
+            FILE* file = fopen(filename, "r");
         if (!file) {
             FILE* file = fopen(filename, "w");
         }
@@ -376,93 +387,110 @@ DWORD WINAPI handle_client(LPVOID lpParam) {
         result = malloc(100);
         sprintf(result, "Error.\n");
     }
-skip: {
+    skip: {
     if (result == NULL) {
         result = malloc(100);
         sprintf(result, "Error.\n");
     }
     int bytes_sent = send(client_socket, result, strlen(result), 0); // Отправка результата клиенту
-    closesocket(client_socket); // Закрытие сокета клиента
+    }
     free(argv);
     free(result);
+    }
     free(buffer);
-    }
-ReleaseMutex(mutex); // Освобождение мьютекса
+    closesocket(client_socket); // Закрытие сокета клиента
+    ReleaseMutex(mutex); // Освобождение мьютекса
 }
-========================================================================================================================================================================================
+
+void removeNewline(char* str) {
+    if (str != NULL) {
+        size_t length = strcspn(str, "\n");
+        str[length] = '\0';
+    }
+}
+==========================================================
 queue.c
-========================================================================================================================================================================================
-#define _CRT_SECURE_NO_WARNINGS  // Отключает предупреждения о небезопасных функциях CRT
-#include "queue.h"  // Подключает заголовочный файл для работы с очередью
-#include <stdio.h>  // Подключает стандартную библиотеку ввода-вывода
-#include <stdlib.h>  // Подключает библиотеку, содержащую функции для работы с памятью, процессами и преобразованиями
-#include <string.h>  // Подключает библиотеку для работы со строками
+==========================================================
+#define _CRT_SECURE_NO_WARNINGS
+#include "queue.h" 
+#include <stdio.h> 
+#include <stdlib.h> 
+#include <string.h> 
 
-int countWordsInFileQueue(const char* filename) {  // Функция для подсчета слов в файле
-    FILE* file = fopen(filename, "r");  // Открывает файл для чтения
-    int count = 0;  // Переменная для подсчета слов
-    char word[10000];  // Массив для хранения слов
-    while (fscanf(file, "%s", word) != EOF) {  // Цикл для чтения слов из файла
-        count++;  // Увеличивает счетчик слов
+// Функция подсчета слов в файле
+int countWordsInFileQueue(const char* filename) {
+    FILE* file = fopen(filename, "r");
+    int count = 0;
+    char word[10000];
+    while (fscanf(file, "%s", word) != EOF) {
+        count++;
     }
-    fclose(file);  // Закрывает файл
-    return count;  // Возвращает количество слов в файле
+    fclose(file);
+    return count;
 }
 
-Queue* initQueue() {  // Функция для инициализации очереди
-    Queue* queue = (Queue*)malloc(sizeof(Queue));  // Выделяет память под структуру очереди
-    queue->front = NULL;  // Устанавливает указатель на начало очереди в NULL
-    queue->rear = NULL;  // Устанавливает указатель на конец очереди в NULL
-    return queue;  // Возвращает указатель на очередь
+// Функция инициализации очереди
+Queue* initQueue() {
+    Queue* queue = (Queue*)malloc(sizeof(Queue));
+    queue->front = NULL;  // Установка указателя на начало очереди в NULL
+    queue->rear = NULL;  // Установка указателя на конец очереди в NULL
+    return queue;   // Возврат указателя на очередь
 }
 
-void QPUSH(Queue* queue, char* element) {  // Функция для добавления элемента в очередь
-    NodeQueue* newNode = (NodeQueue*)malloc(sizeof(NodeQueue));  // Выделяет память под новый узел очереди
-    newNode->element = _strdup(element);  // Копирует элемент в новый узел
-    newNode->next = NULL;  // Устанавливает указатель на следующий узел в NULL
+// Функция добавления элемента в очередь
+void QPUSH(Queue* queue, char* element) {
+    // Новый узел
+    NodeQueue* newNode = (NodeQueue*)malloc(sizeof(NodeQueue));
+    newNode->element = _strdup(element);  // Копирование элемента в узел
+    newNode->next = NULL;  // Установка указателя на следующий узел в NULL
     if (queue->front == NULL) {  // Если очередь пуста
-        queue->front = newNode;  // Устанавливает новый узел как начало очереди
-        queue->rear = newNode;  // Устанавливает новый узел как конец очереди
+        queue->front = newNode;  // Установка указателя на начало очереди на новый узел
+        queue->rear = newNode;  // Установка указателя на конец очереди на новый узел
     }
-    else {  // Если в очереди уже есть элементы
-        queue->rear->next = newNode;  // Добавляет новый узел в конец очереди
-        queue->rear = newNode;  // Устанавливает новый узел как конец очереди
+    else {  // Если очередь не пуста
+        queue->rear->next = newNode;  // Добавление нового узла в конец очереди
+        queue->rear = newNode;  // Установка указателя на конец очереди на новый узел
     }
 }
 
-char* QPOP(Queue* queue) {  // Функция для удаления элемента из очереди
-    if (queue->front == NULL) {  // Если очередь пуста
-        return ("The queue is empty");  // Возвращает сообщение об ошибке
+// Функция удаления элемента из очереди
+char* QPOP(Queue* queue) {
+    // Проверка пустоты очереди
+    if (queue->front == NULL) {
+        return ("The queue is empty");
     }
-    NodeQueue* poppedNode = queue->front;  // Сохраняет указатель на узел, который нужно удалить
-    char* element = poppedNode->element;  // Сохраняет элемент, который нужно удалить
-    queue->front = poppedNode->next;  // Перемещает указатель на начало очереди на следующий узел
+    NodeQueue* poppedNode = queue->front;  // Указатель на удаляемый узел
+    char* element = poppedNode->element;  // Указатель на удаляемый элемент
+    queue->front = poppedNode->next;   // Сдвиг указателя на начало очереди на следующий узел
     if (queue->front == NULL) {  // Если очередь стала пустой
-        queue->rear = NULL;  // Устанавливает указатель на конец очереди в NULL
+        queue->rear = NULL;  // Установка указателя на конец очереди в NULL
     }
-    free(poppedNode);  // Освобождает память, занятую узлом
-    return element;  // Возвращает удаленный элемент
+    free(poppedNode);  // Освобождение памяти от удаляемого узла
+    return element;  // Возврат указателя на удаляемый элемент
 }
 
+// Функция сохранения изменений в файл
 void saveToFileQueue(Queue* queue, const char* filename, const char* basename, int* pos1, int* pos2, int* status) {
     FILE* file = fopen(filename, "r");
     FILE* tempFile = fopen("temp.data", "w");
-    int ch;
-    fseek(file, 0, SEEK_SET);
-    fseek(tempFile, 0, SEEK_SET);
-    while ((ch = fgetc(file)) != EOF) {
-        fputc(ch, tempFile);
-        if (ftell(tempFile) == *pos1 - 2 && *status == 2)
+    int ch; // Символ, который требуется записать
+    fseek(file, 0, SEEK_SET); // Установка курсора в начало
+    fseek(tempFile, 0, SEEK_SET); // Установка курсора в начало
+    while ((ch = fgetc(file)) != EOF) { // Цикл, пока не выдаст ошибку при записи
+        fputc(ch, tempFile); // Запись символа в поток
+        if (ftell(tempFile) == *pos1 - 2 && *status == 2)  // Если пустая БД, то добавляем табуляцию перед элементом
             fprintf(tempFile, "\t%s", queue->front->element);
         else if (ftell(tempFile) == *pos1) {
-            NodeQueue* currentNode = queue->front;
+            NodeQueue* currentNode = queue->front; // Ставим указатель на начало
+            // Пока не закончатся добавляем элементы
             while (currentNode != NULL) {
-                if (currentNode->next == NULL)
+                if (currentNode->next == NULL) // Если нет следующего элемента, то добавляем строку
                     fprintf(tempFile, "%s\n", currentNode->element);
-                else
+                else // Иначе добавляем после элемента табуляцию
                     fprintf(tempFile, "%s\t", currentNode->element);
-                currentNode = currentNode->next;
+                currentNode = currentNode->next; // Переход к следующему элементу
             }
+            // Добавление новую строку, если БД пуста
             if (*status == 1) {
                 fseek(tempFile, *pos1 - 1, SEEK_SET);
                 fprintf(tempFile, "\n");
@@ -470,8 +498,13 @@ void saveToFileQueue(Queue* queue, const char* filename, const char* basename, i
             fseek(file, *pos2, SEEK_SET);
         }
     }
-    free(queue->rear);
-    free(queue->front);
+    NodeQueue* currentNode = queue->front;
+    while (currentNode != NULL) {
+        NodeQueue* nextNode = currentNode->next;
+        free(currentNode->element);
+        free(currentNode);
+        currentNode = nextNode;
+    }
     free(queue);
     fclose(file);
     fclose(tempFile);
@@ -479,35 +512,38 @@ void saveToFileQueue(Queue* queue, const char* filename, const char* basename, i
     rename("temp.data", filename);
 }
 
+// Функция загрузки БД в структуру
 Queue* loadFromFileQueue(const char* filename, const char* basename, int* pos1, int* pos2, int* status) {
     FILE* file = fopen(filename, "r");
+    // Проверка наличия файла
     if (file == NULL) {
         return NULL;
     }
-    int num_lines = countWordsInFileQueue(filename);
+    int num_lines = countWordsInFileQueue(filename); // Переменная, отвечающая за количество слов
     char** line = malloc(num_lines * sizeof(char*));
     for (int i = 0; i < num_lines; i++) line[i] = malloc(10000 * sizeof(char));
     Queue* queue = initQueue();
-    int tempory = 0;
-    int pos3 = 0;
-    int temp1 = 0;
-    int temp2 = 0;
-    char c = '1';
+    int tempory = 0; // Переменная-переключатель
+    int pos3 = 0; // Временная переменная, которая запоминает исходную позицию курсора
+    int temp1 = 0; // Переменная, отвечающая за номер 1 элемента в БД
+    int temp2 = 0; // Переменная, отвечающая за номер 2 элемента в БД
+    char c = '1'; // Полученный символ
+    // Проходимся по всем словам
     for (int i = 0; i < num_lines; ++i) {
         fscanf(file, "%s", line[i]);
         c = getc(file);
         pos3 = ftell(file);
-        if (!strcmp(line[i], basename)) {
-            fseek(file, -3 - strlen(line[i]), SEEK_CUR);
+        if (!strcmp(line[i], basename)) { // Если наша БД, то делаем с ней операции
+            fseek(file, -3 - strlen(line[i]), SEEK_CUR); // Временно переносим курсор на предыдущии позиции
             if (getc(file) == '\n' || i == 0) {
-                fseek(file, pos3, SEEK_SET);
+                fseek(file, pos3, SEEK_SET); // Возврат курсора
                 tempory = 1;
                 *pos1 = ftell(file);
                 temp1 = i + 1;
             }
-            else fseek(file, pos3, SEEK_SET);
+            else fseek(file, pos3, SEEK_SET); // Возврат курсора
         }
-        if (c == '\n' && tempory == 1) {
+        if (c == '\n' && tempory == 1) { // Конец нашей БД
             temp2 = i;
             *pos2 = ftell(file);
             tempory = 0;
@@ -516,9 +552,10 @@ Queue* loadFromFileQueue(const char* filename, const char* basename, int* pos1, 
             break;
     }
     if (temp1 == temp2)
-        *status = 1;
+        *status = 1; // 1 элемент
     if (temp1 == temp2 + 1)
-        *status = 2;
+        *status = 2; // 2 или более элемента
+    // Добавление в структуру элементов
     while (temp1 < temp2 + 1) {
         QPUSH(queue, line[temp1]);
         temp1++;
@@ -530,9 +567,9 @@ Queue* loadFromFileQueue(const char* filename, const char* basename, int* pos1, 
     free(line);
     return queue;
 }
-========================================================================================================================================================================================
+==========================================================
 queue.h
-========================================================================================================================================================================================
+==========================================================
 #ifndef QUEUE_H
 #define QUEUE_H
 
@@ -557,123 +594,161 @@ void saveToFileQueue(Queue* queue, const char* filename, const char* basename, i
 Queue* loadFromFileQueue(const char* filename, const char* basename, int *pos1, int *pos2, int *status);
 
 #endif
-========================================================================================================================================================================================
+==========================================================
 set.c
-========================================================================================================================================================================================
-#define _CRT_SECURE_NO_WARNINGS  // Отключает предупреждения о небезопасных функциях CRT
-#include "set.h"  // Подключает заголовочный файл для работы с множествами
-#include <stdio.h>  // Подключает стандартную библиотеку ввода-вывода
-#include <stdlib.h>  // Подключает библиотеку, содержащую функции для работы с памятью, процессами и преобразованиями
-#include <string.h>  // Подключает библиотеку для работы со строками
-#define MAX_SIZE 100000  // Определяет максимальный размер хеш-таблицы
+==========================================================
+#define _CRT_SECURE_NO_WARNINGS
+#include "set.h" 
+#include <stdio.h> 
+#include <stdlib.h> 
+#include <string.h> 
+#define MAX_SIZE 100000 
 
-int countWordsInFileSet(const char* filename) {  // Функция для подсчета слов в файле
-    FILE* file = fopen(filename, "r");  // Открывает файл для чтения
-    int count = 0;  // Переменная для подсчета слов
+// Функция подсчета слов в файле
+int countWordsInFileSet(const char* filename) {
+    FILE* file = fopen(filename, "r");
+    int count = 0;  // Счетчик слов
     char word[10000];  // Массив для хранения слов
-    while (fscanf(file, "%s", word) != EOF) {  // Цикл для чтения слов из файла
-        count++;  // Увеличивает счетчик слов
+    while (fscanf(file, "%s", word) != EOF) {
+        count++;
     }
-    fclose(file);  // Закрывает файл
-    return count;  // Возвращает количество слов в файле
+    fclose(file);
+    return count;
 }
 
-Set* initSet() {  // Функция для инициализации множества
-    Set* set = (Set*)malloc(sizeof(Set));  // Выделяет память под структуру множества
-    set->head = NULL;  // Устанавливает указатель на голову множества в NULL
-    set->size = 0;  // Устанавливает размер множества в 0
-    set->tableSize = MAX_SIZE;  // Устанавливает размер хеш-таблицы
-    set->hashTable = (Node**)malloc(MAX_SIZE * sizeof(Node*));  // Выделяет память под хеш-таблицу
-    set->emptySlots = (int*)malloc(MAX_SIZE * sizeof(int));  // Выделяет память под массив пустых слотов
-    for (int i = 0; i < MAX_SIZE; i++) {  // Цикл для инициализации хеш-таблицы и массива пустых слотов
-        set->hashTable[i] = NULL;  // Устанавливает каждый элемент хеш-таблицы в NULL
-        set->emptySlots[i] = 1;  // Устанавливает каждый элемент массива пустых слотов в 1
+// Функция для инициализации множества
+Set* initSet() {
+    Set* set = (Set*)malloc(sizeof(Set));
+    set->head = NULL; // Инициализация головы множества
+    set->size = 0; // Инициализация размера множества
+    set->tableSize = MAX_SIZE; // Инициализация размера хеш-таблицы
+    set->hashTable = (Node**)malloc(MAX_SIZE * sizeof(Node*));
+    set->emptySlots = (int*)malloc(MAX_SIZE * sizeof(int));
+    for (int i = 0; i < MAX_SIZE; i++) {
+        set->hashTable[i] = NULL; // Инициализация элемента хеш-таблицы
+        set->emptySlots[i] = 1; // Инициализация элемента массива пустых слотов
     }
-    return set;  // Возвращает указатель на множество
+    return set; // Возврат указателя на множество
 }
 
-int calculateHashS(const char* element) {  // Функция для вычисления хеша элемента
-    int hash = 0;  // Переменная для хранения хеша
-    for (int i = 0; element[i] != '\0'; i++) {  // Цикл для обработки каждого символа элемента
-        hash = 31 * hash + element[i];  // Вычисляет хеш
+// Функция для вычисления первого хеша
+int calculateHashS(const char* element) {
+    int hash = 0;
+    for (int i = 0; element[i] != '\0'; i++) {
+        hash = 31 * hash + element[i];
     }
-    return abs(hash) % MAX_SIZE;  // Возвращает абсолютное значение хеша, ограниченное максимальным размером
+    return abs(hash) % MAX_SIZE;
 }
 
-void SADD(Set* set, char* element) {  // Функция для добавления элемента в множество
-    int hash = calculateHashS(element);  // Вычисляет хеш элемента
-    if (set->hashTable[hash] != NULL) {  // Если в хеш-таблице уже есть элемент с таким хешем
-        return;  // Возвращает управление
+// Функция для вычисления второго хеша
+int calculateHash2S(const char* element) {
+    int hash = 0;
+    for (int i = 0; element[i] != '\0'; i++) {
+        hash = 17 * hash + element[i];
     }
-    Node* newNode = (Node*)malloc(sizeof(Node));  // Выделяет память под новый узел
-    newNode->element = _strdup(element);  // Копирует элемент в новый узел
-    newNode->hash = hash;  // Сохраняет хеш в новом узле
-    newNode->next = set->head;  // Устанавливает указатель на следующий узел в голову множества
-    if (set->head != NULL) {  // Если множество не пусто
-        set->head->prev = newNode;  // Устанавливает указатель на предыдущий узел головы множества в новый узел
-    }
-    set->head = newNode;  // Устанавливает новый узел как голову множества
-    set->hashTable[hash] = newNode;  // Сохраняет новый узел в хеш-таблице
-    set->size++;  // Увеличивает размер множества
+    return abs(hash) % MAX_SIZE;
 }
 
-void SREM(Set* set, const char* element) {  // Функция для удаления элемента из множества
-    int hash = calculateHashS(element);  // Вычисляет хеш элемента
-    if (set->hashTable[hash] != NULL && strcmp(set->hashTable[hash]->element, element) == 0) {  // Если в хеш-таблице есть элемент с таким хешем и элемент совпадает
-        Node* nodeToRemove = set->hashTable[hash];  // Сохраняет указатель на узел, который нужно удалить
-        if (nodeToRemove == set->head) {  // Если узел является головой множества
-            set->head = nodeToRemove->next;  // Перемещает указатель на голову множества на следующий узел
+// Функция для добавления элемента в множество
+void SADD(Set* set, char* element) {
+    int hash = calculateHashS(element); // Вычисление первого хеша элемента
+    int step = calculateHash2S(element); // Вычисление второго хеша элемента
+    // Объединение хешов
+    while (set->hashTable[hash] != NULL && strcmp(set->hashTable[hash]->element, element) != 0) {
+        hash = (hash + step) % MAX_SIZE;
+    }
+    // Проверка повтора элемента
+    if (set->hashTable[hash] != NULL && strcmp(set->hashTable[hash]->element, element) == 0) {
+        return;
+    }
+    // Новый узел
+    Node* newNode = (Node*)malloc(sizeof(Node));
+    newNode->element = _strdup(element); // Копирование элемента
+    newNode->hash = hash; // Сохранение хеша элемента
+    newNode->next = set->head; // Установка следующего узла после нового узла
+    if (set->head != NULL) { // Если голова множества не пуста
+        set->head->prev = newNode; // Установка предыдущего узла
+    }
+    set->head = newNode; // Обновление головы списка
+    set->hashTable[hash] = newNode; // Вставка узла в хеш-таблицу
+    set->size++; // Увеличение размера множества
+}
+
+// Функция для удаления элемента из множества
+void SREM(Set* set, const char* element) {
+    int hash = calculateHashS(element); // Вычисление первого хеша элемента
+    int step = calculateHash2S(element); // Вычисление второго хеша элемента
+    // Объединение хешов
+    while (set->hashTable[hash] != NULL && strcmp(set->hashTable[hash]->element, element) != 0) {
+        hash = (hash + step) % MAX_SIZE;
+    }
+    // Если найден элемент
+    if (set->hashTable[hash] != NULL && strcmp(set->hashTable[hash]->element, element) == 0) {
+        Node* nodeToRemove = set->hashTable[hash]; // Получение узла для удаления
+        if (nodeToRemove == set->head) { // Если узел для удаления является головой множества
+            set->head = nodeToRemove->next; // Установка следующего узла в качестве головы множества
         }
-        else {  // Если узел не является головой множества
-            if (nodeToRemove->prev != NULL) {  // Если у узла есть предыдущий узел
-                nodeToRemove->prev->next = nodeToRemove->next;  // Перемещает указатель на следующий узел предыдущего узла на следующий узел удаляемого узла
+        else {
+            if (nodeToRemove->prev != NULL) { // Если у узла для удаления есть предыдущий узел
+                nodeToRemove->prev->next = nodeToRemove->next; // Установка следующего узла после предыдущего узла
             }
         }
-        if (nodeToRemove->next != NULL) {  // Если у узла есть следующий узел
-            nodeToRemove->next->prev = nodeToRemove->prev;  // Перемещает указатель на предыдущий узел следующего узла на предыдущий узел удаляемого узла
+        if (nodeToRemove->next != NULL) { // Если у узла для удаления есть следующий узел
+            nodeToRemove->next->prev = nodeToRemove->prev; // Установка предыдущего узла перед следующим узлом
         }
-        free(nodeToRemove->element);  // Освобождает память, занятую элементом удаляемого узла
-        free(nodeToRemove);  // Освобождает память, занятую узлом
-        set->hashTable[hash] = NULL;  // Устанавливает элемент хеш-таблицы с хешем удаляемого элемента в NULL
-        set->size--;  // Уменьшает размер множества
-        return;  // Возвращает управление
+        free(nodeToRemove->element); // Освобождение памяти, занятой элементом
+        free(nodeToRemove); // Освобождение памяти, занятой узлом
+        set->hashTable[hash] = NULL; // Удаление узла из хеш-таблицы
+        set->size--; // Уменьшение размера множества на 1
+        return;
     }
 }
 
-int SISMEMBER(Set* set, const char* element) {  // Функция для проверки, содержит ли множество элемент
-    int hash = calculateHashS(element);  // Вычисляет хеш элемента
-    if (set->hashTable[hash] != NULL && strcmp(set->hashTable[hash]->element, element) == 0) {  // Если в хеш-таблице есть элемент с таким хешем и элемент совпадает
-        return 1;  // Возвращает 1 (истина)
+// Функция для проверки существования элемента
+int SISMEMBER(Set* set, const char* element) {
+    int hash = calculateHashS(element); // Вычисление первого хеша элемента
+    int step = calculateHash2S(element); // Вычисление второго хеша элемента
+    // Объединение хешов
+    while (set->hashTable[hash] != NULL && strcmp(set->hashTable[hash]->element, element) != 0) {
+        hash = (hash + step) % MAX_SIZE;
     }
-    return 0;  // Возвращает 0 (ложь)
+    // Если найден элемент
+    if (set->hashTable[hash] != NULL && strcmp(set->hashTable[hash]->element, element) == 0) {
+        return 1;
+    }
+    return 0;
 }
 
+// Функция сохранения изменений в файл
 void saveToFileSet(Set* set, const char* filename, const char* basename, int* pos1, int* pos2, int* status) {
     FILE* file = fopen(filename, "r");
     FILE* tempFile = fopen("temp.data", "w");
-    int ch;
-    fseek(file, 0, SEEK_SET);
-    fseek(tempFile, 0, SEEK_SET);
+    int ch; // Символ, который требуется записать
+    fseek(file, 0, SEEK_SET); // Установка курсора в начало
+    fseek(tempFile, 0, SEEK_SET); // Установка курсора в начало
     char** elements = (char**)malloc(set->size * sizeof(char*));
-    Node* current = set->head;
-    int i = 0;
+    Node* current = set->head; // Ставим указатель на голову
+    int i = 0; // Переменная, отвечающая за порядок
+    // Добавление элементов в структуру
     while (current != NULL) {
         elements[i] = current->element;
         current = current->next;
         i++;
     }
-    while ((ch = fgetc(file)) != EOF) {
-        fputc(ch, tempFile);
-        if (ftell(tempFile) == *pos1 - 2 && *status == 2)
+    while ((ch = fgetc(file)) != EOF) {  // Цикл, пока не выдаст ошибку при записи
+        fputc(ch, tempFile); // Запись символа в поток
+        if (ftell(tempFile) == *pos1 - 2 && *status == 2) // Если пустая БД, то добавляем табуляцию перед элементом
             fprintf(tempFile, "\t%s", set->head->element);
         else if (ftell(tempFile) == *pos1) {
+            // Пока не закончатся добавляем элементы
             for (int j = set->size - 1; j >= 0; j--) {
                 fprintf(tempFile, "%s", elements[j]);
-                if (j > 0)
+                if (j > 0) // Если есть следующий элемент, то добавляем табуляцию после элемента
                     fprintf(tempFile, "\t");
-                else
+                else // Иначе добавляем новую строку
                     fprintf(tempFile, "\n");
             }
+            // Добавление новую строку, если БД пуста
             if (*status == 1) {
                 fseek(tempFile, *pos1 - 1, SEEK_SET);
                 fprintf(tempFile, "\n");
@@ -687,39 +762,42 @@ void saveToFileSet(Set* set, const char* filename, const char* basename, int* po
     free(set);
     fclose(file);
     fclose(tempFile);
-    remove("2.data");
-    rename("temp.data", "2.data");
+    remove(filename);
+    rename("temp.data", filename);
 }
 
+// Функция загрузки БД в структуру
 Set* loadFromFileSet(const char* filename, const char* basename, int* pos1, int* pos2, int* status) {
     FILE* file = fopen(filename, "r");
+    // Проверка наличия файла
     if (file == NULL) {
         return NULL;
     }
-    int num_lines = countWordsInFileSet(filename);
+    int num_lines = countWordsInFileSet(filename); // Переменная, отвечающая за количество слов
     char** line = malloc(num_lines * sizeof(char*));
     for (int i = 0; i < num_lines; i++) line[i] = malloc(10000 * sizeof(char));
     Set* set = initSet();
-    int tempory = 0;
-    int pos3 = 0;
-    int temp1 = 0;
-    int temp2 = 0;
-    char c = '1';
+    int tempory = 0; // Переменная-переключатель
+    int pos3 = 0; // Временная переменная, которая запоминает исходную позицию курсора
+    int temp1 = 0; // Переменная, отвечающая за номер 1 элемента в БД
+    int temp2 = 0; // Переменная, отвечающая за номер 2 элемента в БД
+    char c = '1'; // Полученный символ
+    // Проходимся по всем словам
     for (int i = 0; i < num_lines; ++i) {
         fscanf(file, "%s", line[i]);
         c = getc(file);
         pos3 = ftell(file);
-        if (!strcmp(line[i], basename)) {
-            fseek(file, -3 - strlen(line[i]), SEEK_CUR);
+        if (!strcmp(line[i], basename)) { // Если наша БД, то делаем с ней операции
+            fseek(file, -3 - strlen(line[i]), SEEK_CUR); // Временно переносим курсор на предыдущии позиции
             if (getc(file) == '\n' || i == 0) {
-                fseek(file, pos3, SEEK_SET);
+                fseek(file, pos3, SEEK_SET); // Возврат курсора
                 tempory = 1;
                 *pos1 = ftell(file);
                 temp1 = i + 1;
             }
-            else fseek(file, pos3, SEEK_SET);
+            else fseek(file, pos3, SEEK_SET); // Возврат курсора
         }
-        if (c == '\n' && tempory == 1) {
+        if (c == '\n' && tempory == 1) { // Конец нашей БД
             temp2 = i;
             *pos2 = ftell(file);
             tempory = 0;
@@ -728,9 +806,10 @@ Set* loadFromFileSet(const char* filename, const char* basename, int* pos1, int*
             break;
     }
     if (temp1 == temp2)
-        *status = 1;
+        *status = 1; // 1 элемент
     if (temp1 == temp2 + 1)
-        *status = 2;
+        *status = 2; // 2 или более элемента
+    // Добавление в структуру элементов
     while (temp1 < temp2 + 1) {
         SADD(set, line[temp1]);
         temp1++;
@@ -742,9 +821,9 @@ Set* loadFromFileSet(const char* filename, const char* basename, int* pos1, int*
     free(line);
     return set;
 }
-========================================================================================================================================================================================
+==========================================================
 set.h
-========================================================================================================================================================================================
+==========================================================
 #ifndef SET_H
 #define SET_H
 
@@ -776,63 +855,70 @@ void saveToFileSet(Set* set, const char* filename, const char* basename, int *po
 Set* loadFromFileSet(const char* filename, const char* basename, int *pos1, int *pos2, int *status);
 
 #endif
-========================================================================================================================================================================================
+==========================================================
 stack.c
-========================================================================================================================================================================================
-#define _CRT_SECURE_NO_WARNINGS  // Отключает предупреждения о небезопасных функциях CRT
-#include "stack.h"  // Подключает заголовочный файл для работы со стеком
-#include <stdio.h>  // Подключает стандартную библиотеку ввода-вывода
-#include <stdlib.h>  // Подключает библиотеку, содержащую функции для работы с памятью, процессами и преобразованиями
-#include <string.h>  // Подключает библиотеку для работы со строками
+==========================================================
+#define _CRT_SECURE_NO_WARNINGS
+#include "stack.h" 
+#include <stdio.h> 
+#include <stdlib.h> 
+#include <string.h> 
 
-int countWordsInFileStack(const char* filename) {  // Функция для подсчета слов в файле
-    FILE* file = fopen(filename, "r");  // Открывает файл для чтения
-    int count = 0;  // Переменная для подсчета слов
-    char word[10000];  // Массив для хранения слов
-    while (fscanf(file, "%s", word) != EOF) {  // Цикл для чтения слов из файла
-        count++;  // Увеличивает счетчик слов
+// Функция подсчета слов в файле
+int countWordsInFileStack(const char* filename) {
+    FILE* file = fopen(filename, "r");
+    int count = 0;
+    char word[10000];
+    while (fscanf(file, "%s", word) != EOF) {
+        count++;
     }
-    fclose(file);  // Закрывает файл
-    return count;  // Возвращает количество слов в файле
+    fclose(file);
+    return count;
 }
 
-Stack* initStack() {  // Функция для инициализации стека
-    Stack* stack = (Stack*)malloc(sizeof(Stack));  // Выделяет память под структуру стека
-    stack->top = NULL;  // Устанавливает указатель на вершину стека в NULL
-    return stack;  // Возвращает указатель на стек
+// Функция для инициализации стека
+Stack* initStack() {
+    Stack* stack = (Stack*)malloc(sizeof(Stack));
+    stack->top = NULL;
+    return stack;
 }
 
-void SPUSH(Stack* stack, char* element) {  // Функция для добавления элемента в стек
-    NodeStack* newNode = (NodeStack*)malloc(sizeof(NodeStack));  // Выделяет память под новый узел стека
-    newNode->element = _strdup(element);  // Копирует элемент в новый узел
-    newNode->next = stack->top;  // Устанавливает указатель на следующий узел в вершину стека
-    stack->top = newNode;  // Устанавливает новый узел как вершину стека
+// Функция для добавления элемента в стек
+void SPUSH(Stack* stack, char* element) {
+    NodeStack* newNode = (NodeStack*)malloc(sizeof(NodeStack)); // Выделение памяти под новый узел
+    newNode->element = _strdup(element); // Копирование элемента в узел
+    newNode->next = stack->top; // Установка следующего узла после нового узла
+    stack->top = newNode; // Установка нового узла в качестве вершины стека
 }
 
-char* SPOP(Stack* stack) {  // Функция для удаления элемента из стека
-    if (stack->top == NULL) {  // Если стек пуст
-        return ("The stack is empty");  // Возвращает сообщение об ошибке
+// Функция для удаления элемента из стека
+char* SPOP(Stack* stack) {
+    // Проверка пустоты стека
+    if (stack->top == NULL) {
+        return ("The stack is empty");
     }
-    NodeStack* poppedNode = stack->top;  // Сохраняет указатель на узел, который нужно удалить
-    stack->top = poppedNode->next;  // Перемещает указатель на вершину стека на следующий узел
-    char* element = poppedNode->element;  // Сохраняет элемент, который нужно удалить
-    free(poppedNode);  // Освобождает память, занятую узлом
-    return element;  // Возвращает удаленный элемент
+    NodeStack* poppedNode = stack->top; // Получение узла для удаления
+    stack->top = poppedNode->next; // Установка следующего узла в качестве вершины стека
+    char* element = poppedNode->element; // Получение элемента из узла
+    free(poppedNode); // Освобождение памяти, занятой узлом
+    return element; // Возврат элемента
 }
 
+// Функция сохранения изменений в файл
 void saveToFileStack(Stack* stack, const char* filename, const char* basename, int* pos1, int* pos2, int* status) {
     FILE* file = fopen(filename, "r");
     FILE* tempFile = fopen("temp.data", "w");
-    int ch;
-    fseek(file, 0, SEEK_SET);
-    fseek(tempFile, 0, SEEK_SET);
-    while ((ch = fgetc(file)) != EOF) {
-        fputc(ch, tempFile);
-        if (ftell(tempFile) == *pos1 - 2 && *status == 2)
+    int ch; // Символ, который требуется записать
+    fseek(file, 0, SEEK_SET); // Установка курсора в начало
+    fseek(tempFile, 0, SEEK_SET); // Установка курсора в начало
+    while ((ch = fgetc(file)) != EOF) { // Цикл, пока не выдаст ошибку при записи
+        fputc(ch, tempFile); // Запись символа в поток
+        if (ftell(tempFile) == *pos1 - 2 && *status == 2)  // Если пустая БД, то добавляем табуляцию перед элементом
             fprintf(tempFile, "\t%s", stack->top->element);
         else if (ftell(tempFile) == *pos1) {
-            NodeStack* currentNode = stack->top;
-            NodeStack* prevNode = NULL;
+            NodeStack* currentNode = stack->top; // Ставим указатель на вершину стека
+            NodeStack* prevNode = NULL; // Временная переменная-указатель
+            // Цикл для перевёртывания стека
             while (currentNode != NULL) {
                 NodeStack* nextNode = currentNode->next;
                 currentNode->next = prevNode;
@@ -840,13 +926,14 @@ void saveToFileStack(Stack* stack, const char* filename, const char* basename, i
                 currentNode = nextNode;
             }
             currentNode = prevNode;
-            while (currentNode != NULL) {
+            while (currentNode != NULL) { // Цикл пока не закончатся элементы
                 if (currentNode->next == NULL)
-                    fprintf(tempFile, "%s\n", currentNode->element);
-                else
+                    fprintf(tempFile, "%s\n", currentNode->element); // Если нет следующего элемента, то добавляем строку
+                else // Иначе добавляем после элемента табуляцию
                     fprintf(tempFile, "%s\t", currentNode->element);
                 currentNode = currentNode->next;
             }
+            // Добавление новую строку, если БД пуста
             if (*status == 1) {
                 fseek(tempFile, *pos1 - 1, SEEK_SET);
                 fprintf(tempFile, "\n");
@@ -862,35 +949,38 @@ void saveToFileStack(Stack* stack, const char* filename, const char* basename, i
     rename("temp.data", filename);
 }
 
+// Функция загрузки БД в структуру
 Stack* loadFromFileStack(const char* filename, const char* basename, int* pos1, int* pos2, int* status) {
     FILE* file = fopen(filename, "r");
+    // Проверка наличия файла
     if (file == NULL) {
         return NULL;
     }
-    int num_lines = countWordsInFileStack(filename);
+    int num_lines = countWordsInFileStack(filename); // Переменная, отвечающая за количество слов
     char** line = malloc(num_lines * sizeof(char*));
     for (int i = 0; i < num_lines; i++) line[i] = malloc(10000 * sizeof(char));
     Stack* stack = initStack();
-    int tempory = 0;
-    int pos3 = 0;
-    int temp1 = 0;
-    int temp2 = 0;
-    char c = '1';
+    int tempory = 0; // Переменная-переключатель
+    int pos3 = 0; // Временная переменная, которая запоминает исходную позицию курсора
+    int temp1 = 0; // Переменная, отвечающая за номер 1 элемента в БД
+    int temp2 = 0; // Переменная, отвечающая за номер 2 элемента в БД
+    char c = '1'; // Полученный символ
+    // Проходимся по всем словам
     for (int i = 0; i < num_lines; ++i) {
         fscanf(file, "%s", line[i]);
         c = getc(file);
         pos3 = ftell(file);
-        if (!strcmp(line[i], basename)) {
-            fseek(file,  -3 - strlen(line[i]), SEEK_CUR);
+        if (!strcmp(line[i], basename)) { // Если наша БД, то делаем с ней операции
+            fseek(file, -3 - strlen(line[i]), SEEK_CUR); // Временно переносим курсор на предыдущии позиции
             if (getc(file) == '\n' || i == 0) {
-                fseek(file, pos3, SEEK_SET);
+                fseek(file, pos3, SEEK_SET); // Возврат курсора
                 tempory = 1;
                 *pos1 = ftell(file);
                 temp1 = i + 1;
             }
-            else fseek(file, pos3, SEEK_SET);
+            else fseek(file, pos3, SEEK_SET); // Возврат курсора
         }
-        if (c == '\n' && tempory == 1) {
+        if (c == '\n' && tempory == 1) { // Конец нашей БД
             temp2 = i;
             *pos2 = ftell(file);
             tempory = 0;
@@ -899,9 +989,10 @@ Stack* loadFromFileStack(const char* filename, const char* basename, int* pos1, 
             break;
     }
     if (temp1 == temp2)
-        *status = 1;
+        *status = 1; // 1 элемент
     if (temp1 == temp2 + 1)
-        *status = 2;
+        *status = 2; // 2 или более элемента
+    // Добавление в структуру элементов
     while (temp1 < temp2 + 1) {
         SPUSH(stack, line[temp1]);
         temp1++;
@@ -913,9 +1004,9 @@ Stack* loadFromFileStack(const char* filename, const char* basename, int* pos1, 
     free(line);
     return stack;
 }
-========================================================================================================================================================================================
+==========================================================
 stack.h
-========================================================================================================================================================================================
+==========================================================
 #ifndef STACK_H
 #define STACK_H
 
@@ -939,118 +1030,143 @@ void saveToFileStack(Stack* stack, const char* filename, const char* basename, i
 Stack* loadFromFileStack(const char* filename, const char* basename, int *pos1, int *pos2, int *status);
 
 #endif
-========================================================================================================================================================================================
+==========================================================
 table.c
-========================================================================================================================================================================================
-#define _CRT_SECURE_NO_WARNINGS  // Отключает предупреждения о небезопасных функциях CRT
-#include "table.h"  // Подключает заголовочный файл для работы с хеш-таблицей
-#include <stdio.h>  // Подключает стандартную библиотеку ввода-вывода
-#include <stdlib.h>  // Подключает библиотеку, содержащую функции для работы с памятью, процессами и преобразованиями
-#include <string.h>  // Подключает библиотеку для работы со строками
-#define MAX_SIZE 100000  // Определяет максимальный размер хеш-таблицы
+==========================================================
+#define _CRT_SECURE_NO_WARNINGS
+#include "table.h" 
+#include <stdio.h> 
+#include <stdlib.h> 
+#include <string.h> 
+#define MAX_SIZE 100000
 
-int countWordsInFileTable(const char* filename) {  // Функция для подсчета слов в файле
-    FILE* file = fopen(filename, "r");  // Открывает файл для чтения
-    int count = 0;  // Переменная для подсчета слов
-    char word[10000];  // Массив для хранения слов
-    while (fscanf(file, "%s", word) != EOF) {  // Цикл для чтения слов из файла
-        count++;  // Увеличивает счетчик слов
-    }
-    fclose(file);  // Закрывает файл
-    return count;  // Возвращает количество слов в файле
+// Функция подсчета слов в файле
+int countWordsInFileTable(const char* filename) {
+	FILE* file = fopen(filename, "r");
+	int count = 0;
+	char word[10000];
+	while (fscanf(file, "%s", word) != EOF) {
+		count++;
+	}
+	fclose(file);
+	return count;
 }
 
-HashTable* initHashTable() {  // Функция для инициализации хеш-таблицы
-    HashTable* ht = (HashTable*)malloc(sizeof(HashTable));  // Выделяет память под структуру хеш-таблицы
-    ht->head = NULL;  // Устанавливает указатель на голову хеш-таблицы в NULL
-    ht->size = 0;  // Устанавливает размер хеш-таблицы в 0
-    ht->tableSize = MAX_SIZE;  // Устанавливает размер таблицы в MAX_SIZE
-    ht->hashTable = (NodeHashTable**)malloc(MAX_SIZE * sizeof(NodeHashTable*));  // Выделяет память под хеш-таблицу
-    ht->keys = (char**)malloc(MAX_SIZE * sizeof(char*));  // Выделяет память под массив ключей
-    for (int i = 0; i < MAX_SIZE; i++) {  // Цикл для инициализации хеш-таблицы и массива ключей
-        ht->hashTable[i] = NULL;  // Устанавливает каждый элемент хеш-таблицы в NULL
-        ht->keys[i] = NULL;  // Устанавливает каждый элемент массива ключей в NULL
-    }
-    return ht;  // Возвращает указатель на хеш-таблицу
+// Функция для инициализации хеш-таблицы
+HashTable* initHashTable() {
+	HashTable* ht = (HashTable*)malloc(sizeof(HashTable));
+	ht->head = NULL;
+	ht->size = 0;
+	ht->tableSize = MAX_SIZE;
+	ht->hashTable = (NodeHashTable**)malloc(MAX_SIZE * sizeof(NodeHashTable*));
+	ht->keys = (char**)malloc(MAX_SIZE * sizeof(char*));
+	for (int i = 0; i < MAX_SIZE; i++) {
+		ht->hashTable[i] = NULL;
+		ht->keys[i] = NULL;
+	}
+	return ht;
 }
 
-int calculateHashT(const char* element) {  // Функция для вычисления хеша элемента
-    int hash = 0;  // Переменная для хранения хеша
-    for (int i = 0; element[i] != '\0'; i++) {  // Цикл для обработки каждого символа элемента
-        hash = 31 * hash + element[i];  // Вычисляет хеш
-    }
-    return abs(hash) % MAX_SIZE;  // Возвращает абсолютное значение хеша, ограниченное максимальным размером
+// Функция для вычисления хеша
+int calculateHashT(const char* element) {
+	int hash = 0;
+	for (int i = 0; element[i] != '\0'; i++) {
+		hash = 31 * hash + element[i];
+	}
+	return abs(hash) % MAX_SIZE;
 }
 
-void HSET(HashTable* ht, char* key, char* value) {  // Функция для добавления пары ключ-значение в хеш-таблицу
-    int hash = calculateHashT(key);  // Вычисляет хеш ключа
-    if (ht->hashTable[hash] != NULL) {  // Если в хеш-таблице уже есть элемент с таким хешем
-        return;  // Возвращает управление
-    }
-    NodeHashTable* newNode = (NodeHashTable*)malloc(sizeof(NodeHashTable));  // Выделяет память под новый узел хеш-таблицы
-    newNode->element = _strdup(value);  // Копирует значение в новый узел
-    newNode->hash = hash;  // Сохраняет хеш в новом узле
-    newNode->next = ht->head;  // Устанавливает указатель на следующий узел в голову хеш-таблицы
-    if (ht->head != NULL) {  // Если хеш-таблица не пуста
-        ht->head->prev = newNode;  // Устанавливает указатель на предыдущий узел головы хеш-таблицы в новый узел
-    }
-    ht->head = newNode;  // Устанавливает новый узел как голову хеш-таблицы
-    ht->hashTable[hash] = newNode;  // Сохраняет новый узел в хеш-таблице
-    ht->size++;  // Увеличивает размер хеш-таблицы
-    ht->keys[ht->size - 1] = _strdup(key);  // Сохраняет ключ в массиве ключей
+// Функция для добавления элемента в хеш-таблицу
+void HSET(HashTable* ht, char* key, char* value) {
+	int hash = calculateHashT(key); // Вычисление хеша ключа
+	NodeHashTable* current = ht->hashTable[hash];
+	// Проверка уникальности ключа
+	while (current != NULL) {
+		if (strcmp(current->element, value) == 0) {
+			return;
+		}
+		current = current->next;
+	}
+	// Новый узел
+	NodeHashTable* newNode = (NodeHashTable*)malloc(sizeof(NodeHashTable));
+	newNode->element = _strdup(value); // Копирование элемента в узел
+	newNode->hash = hash; // Сохранение хеша в узле
+	newNode->next = NULL; // Инициализация следующего узла как NULL
+	newNode->prev = NULL; // Инициализация предыдущего узла как NULL
+	if (ht->hashTable[hash] == NULL) { // Если список для данного хеша пуст
+		ht->hashTable[hash] = newNode; // Установка нового узла как первого в списке
+	}
+	else {
+		current = ht->hashTable[hash]; // Начало списка
+		while (current->next != NULL) { // Поиск последнего узла в списке
+			current = current->next;
+		}
+		current->next = newNode; // Добавление нового узла в конец списка
+		newNode->prev = current; // Установка предыдущего узла для нового узла
+	}
+	ht->size++; // Увеличение размера хеш-таблицы
+	ht->keys[ht->size - 1] = _strdup(key); // Сохранение ключа в массиве ключей
 }
 
-char* HGET(HashTable* ht, const char* key) {  // Функция для получения значения по ключу из хеш-таблицы
-    if (ht->hashTable[calculateHashT(key)] != NULL) {  // Если в хеш-таблице есть элемент с таким хешем
-        return ht->hashTable[calculateHashT(key)]->element;  // Возвращает значение этого элемента
-    }
-    return NULL;  // Возвращает NULL, если элемента с таким хешем нет
+// Функция для получения элемента из хеш-таблицы
+char* HGET(HashTable* ht, const char* key) {
+	// Если найден элемент
+	if (ht->hashTable[calculateHashT(key)] != NULL) {
+		return ht->hashTable[calculateHashT(key)]->element;
+	}
+	return NULL;
 }
 
-void HDEL(HashTable* ht, const char* key) {  // Функция для удаления элемента из хеш-таблицы
-    if (ht->hashTable[calculateHashT(key)] != NULL) {  // Если в хеш-таблице есть элемент с таким хешем
-        NodeHashTable* nodeToRemove = ht->hashTable[calculateHashT(key)];  // Сохраняет указатель на узел, который нужно удалить
-        if (nodeToRemove == ht->head) {  // Если узел является головой хеш-таблицы
-            ht->head = nodeToRemove->next;  // Перемещает указатель на голову хеш-таблицы на следующий узел
-        }
-        else {  // Если узел не является головой хеш-таблицы
-            if (nodeToRemove->prev != NULL) {  // Если у узла есть предыдущий узел
-                nodeToRemove->prev->next = nodeToRemove->next;  // Перемещает указатель на следующий узел предыдущего узла на следующий узел удаляемого узла
-            }
-        }
-        if (nodeToRemove->next != NULL) {  // Если у узла есть следующий узел
-            nodeToRemove->next->prev = nodeToRemove->prev;  // Перемещает указатель на предыдущий узел следующего узла на предыдущий узел удаляемого узла
-        }
-        free(nodeToRemove->element);  // Освобождает память, занятую элементом удаляемого узла
-        free(nodeToRemove);  // Освобождает память, занятую узлом
-        ht->hashTable[calculateHashT(key)] = NULL;  // Устанавливает элемент хеш-таблицы с хешем удаляемого элемента в NULL
-        ht->size--;  // Уменьшает размер хеш-таблицы
-        return;  // Возвращает управление
-    }
+// Функция для удаления элемента из хеш-таблицы
+void HDEL(HashTable* ht, const char* key) {
+	// Если найден элемент
+	if (ht->hashTable[calculateHashT(key)] != NULL) {
+		NodeHashTable* nodeToRemove = ht->hashTable[calculateHashT(key)]; // Узел для удаления
+		if (nodeToRemove == ht->head) { // Если узел является головой списка
+			ht->head = nodeToRemove->next; // Установка следующего узла как головы
+		}
+		else {
+			if (nodeToRemove->prev != NULL) { // Если у узла есть предыдущий узел
+				nodeToRemove->prev->next = nodeToRemove->next; // Удаление узла из списка
+			}
+		}
+		if (nodeToRemove->next != NULL) { // Если у узла есть следующий узел
+			nodeToRemove->next->prev = nodeToRemove->prev; // Удаление узла из списка
+		}
+		free(nodeToRemove->element);
+		free(nodeToRemove);
+		ht->hashTable[calculateHashT(key)] = NULL;
+		ht->size--;
+		return;
+	}
 }
 
+// Функция сохранения изменений в файл
 void saveToFileTable(HashTable* hashtable, const char* filename, const char* basename, int* pos1, int* pos2, int* status) {
 	FILE* file = fopen(filename, "r");
 	FILE* tempFile = fopen("temp.data", "w");
-	int ch;
-	fseek(file, 0, SEEK_SET);
-	fseek(tempFile, 0, SEEK_SET);
-	while ((ch = fgetc(file)) != EOF) {
-		fputc(ch, tempFile);
-		if (ftell(tempFile) == *pos1 - 2 && *status == 2) {
+	int ch; // Символ, который требуется записать
+	fseek(file, 0, SEEK_SET); // Установка курсора в начало
+	fseek(tempFile, 0, SEEK_SET); // Установка курсора в начало
+	while ((ch = fgetc(file)) != EOF) { // Цикл, пока не выдаст ошибку при записи
+		fputc(ch, tempFile); // Запись символа в поток
+		if (ftell(tempFile) == *pos1 - 2 && *status == 2) { // Если пустая БД, то добавляем табуляцию перед элементом с ключом
 			fprintf(tempFile, "\t%s\t%s", hashtable->hashTable[calculateHashT(hashtable->keys[0])]->element, hashtable->keys[0]);
 		}
 		else if (ftell(tempFile) == *pos1) {
+			// Проходимся по всем элементам
 			for (int i = 0; i < hashtable->size; i++) {
-				if (i == hashtable->size - 1) {
+				if (i == hashtable->size - 1) { // Если нет следующего элемента с ключом, то добавляем строку
 					fprintf(tempFile, "%s\t%s\n", hashtable->hashTable[calculateHashT(hashtable->keys[i])]->element, hashtable->keys[i]);
 				}
-				else {
+				else { // Иначе добавляем после элемента с ключом табуляцию
 					fprintf(tempFile, "%s\t%s\t", hashtable->hashTable[calculateHashT(hashtable->keys[i])]->element, hashtable->keys[i]);
 				}
 			}
+			// Добавление новую строку, если БД пуста
 			if (*status == 1) {
 				fseek(tempFile, *pos1 - 1, SEEK_SET);
+				printf("asd");
 				fprintf(tempFile, "\n");
 			}
 			fseek(file, *pos2, SEEK_SET);
@@ -1065,41 +1181,42 @@ void saveToFileTable(HashTable* hashtable, const char* filename, const char* bas
 	rename("temp.data", filename);
 }
 
+// Функция загрузки БД в структуру
 HashTable* loadFromFileTable(const char* filename, const char* basename, int* pos1, int* pos2, int* status) {
 	FILE* file = fopen(filename, "r");
-	int num_lines = countWordsInFileTable(filename);
+	int num_lines = countWordsInFileTable(filename); // Переменная, отвечающая за количество слов
 	char** line = malloc(num_lines * sizeof(char*));
 	for (int i = 0; i < num_lines; i++) line[i] = malloc(10000 * sizeof(char));
 	HashTable* hashtable = initHashTable();
-	int tempory = 0;
-	int tempory2 = 0;
-	int count = 0;
-	int temp1 = 0;
-	int temp2 = 0;
-	char c = '1';
+	int tempory = 0; // Переменная-переключатель
+	int tempory2 = 0; // Переменная, временно хранящие положение символа
+	int temp1 = 0; // Переменная, отвечающая за номер 1 элемента в БД
+	int temp2 = 0; // Переменная, отвечающая за номер 2 элемента в БД
+	char c = '1'; // Полученный символ
+	// Проходимся по всем словам
 	for (int i = 0; i < num_lines; ++i) {
 		fscanf(file, "%s", line[i]);
 		c = getc(file);
 		if (c == '\n') {
 			tempory2 = ftell(file);
 		}
-		if (!strcmp(line[i], basename) && (tempory2 == ftell(file) || tempory2 == ftell(file) - strlen(line[i]) - 1 || i == 0)) {
+		if (!strcmp(line[i], basename) && (tempory2 == ftell(file) || tempory2 == ftell(file) - strlen(line[i]) - 1 || i == 0)) { // Если наша БД, то делаем с ней операции
 			tempory = 1;
 			*pos1 = ftell(file);
 			*pos2 = strlen(line[i]);
 			temp1 = i + 1;
 		}
-		if (c == '\n' && tempory == 1) {
+		if (c == '\n' && tempory == 1) { // Конец нашей БД
 			temp2 = i;
 			*pos2 = ftell(file);
 			tempory = 0;
-			count++;
 		}
 		if (feof(file))
 			break;
 	}
-	if (temp1 + 1 == temp2) *status = 1;
-	if (temp1 == temp2 + 1) *status = 2;
+	if (temp1 + 1 == temp2) *status = 1; // 1 элемент
+	if (temp1 == temp2 + 1) *status = 2; // 2 или более элемента
+	// Добавление в структуру элементов
 	while (temp1 < temp2) {
 		char* value = line[temp1];
 		char* key = line[temp1 + 1];
@@ -1113,9 +1230,9 @@ HashTable* loadFromFileTable(const char* filename, const char* basename, int* po
 	free(line);
 	return hashtable;
 }
-========================================================================================================================================================================================
+==========================================================
 table.h
-========================================================================================================================================================================================
+==========================================================
 #ifndef TABLE_H
 #define TABLE_H
 
@@ -1147,28 +1264,22 @@ void saveToFileTable(HashTable* hashtable, const char* filename, const char* bas
 HashTable* loadFromFileTable(const char* filename, const char* basename, int *pos1, int *pos2, int *status);
 
 #endif
-========================================================================================================================================================================================
+==========================================================
 Python
-========================================================================================================================================================================================
-# Импортируем необходимые библиотеки
+==========================================================
 import string
 import random
 import socket
 from flask import Flask, request, redirect
 from flask_cors import CORS
-import time
-import requests
-import datetime
 
-# Создаем экземпляр приложения Flask
-app = Flask(__name__)
-# Разрешаем кросс-доменные запросы
-CORS(app)
+app = Flask(__name__)  # Создание экземпляра приложения Flask
+CORS(app)  # Разрешение CORS для всего приложения
 
-# Определяем маршрут для формы
+# Декоратор для обработки GET-запроса по пути '/form'
 @app.route('/form', methods=['GET'])
 def form():
-    # Возвращаем HTML-форму для ввода URL
+    # Возвращает HTML-форму для ввода URL
     return '''
     <!DOCTYPE html>
 <html>
@@ -1227,95 +1338,77 @@ document.getElementById('myForm').addEventListener('submit', function(e) {
 def generate_short_url():
     return ''.join(random.choices(string.ascii_letters + string.digits, k=8))
 
-# Определяем маршрут для сокращения URL
+# Декоратор для обработки POST-запроса по корневому пути '/'
 @app.route('/', methods=['POST'])
 def shorten_url():
-    # Получаем URL из запроса
+    # Получение данных из запроса и декодирование
     url = request.data.decode()
-    # Проверка на повтор и возврат имеющего значения
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            try:
-                s.connect((SERVER_IP, SERVER_PORT))
-            except Exception as e:
-                return f'Не удалось подключиться к серверу: {str(e)}', 500
-            s.sendall(f'--file urls.data --query HGET short_urls {url}'.encode())
-            existing_url = s.recv(1024).decode()
-            existing_url = existing_url.replace('\n', '').replace('\r', '')
-            if existing_url == "Error.":
-                return 'Error.', 500
-            if existing_url != "-> False":
-                return f'{request.url_root}SU/{existing_url}'
-    while True:
-        # Генерируем короткий URL
-        short_url = generate_short_url()
-        # Создаем сокет для связи с сервером
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            try:
-                # Подключаемся к серверу
-                s.connect((SERVER_IP, SERVER_PORT))
-            except Exception as e:
-                # Если возникла ошибка, возвращаем ее
-                return f'Не удалось подключиться к серверу: {str(e)}', 500
-            # Отправляем запрос на сервер
-            s.sendall(f'--file urls.data --query HGET urls {short_url}'.encode())
-            # Получаем ответ от сервера
-            existing_url = s.recv(1024).decode()
-            existing_url = existing_url.replace('\n', '').replace('\r', '')
-            # Если возникла ошибка, возвращаем ее
-            if existing_url == "Error.":
-                return 'Error.', 500
-            # Если URL не существует, создаем новый
-            if existing_url == "-> False":
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    try:
-                        # Подключаемся к серверу
-                        s.connect((SERVER_IP, SERVER_PORT))
-                    except Exception as e:
-                        # Если возникла ошибка, возвращаем ее
-                        return f'Не удалось подключиться к серверу: {str(e)}', 500
-                    # Отправляем запрос на сервер
-                    s.sendall(f'--file urls.data --query HSET urls {url} {short_url}'.encode())
-                    # Если возникла ошибка, возвращаем ее
-                    if s.recv(1024).decode().replace('\n', '').replace('\r', '') == "Error.":
-                        return 'Error.', 500
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    try:
-                        s.connect((SERVER_IP, SERVER_PORT))
-                    except Exception as e:
-                        return f'Не удалось подключиться к серверу: {str(e)}', 500
-                    s.sendall(f'--file urls.data --query HSET short_urls {short_url} {url}'.encode())
-                    if s.recv(1024).decode().replace('\n', '').replace('\r', '') == "Error.":
-                        return 'Error.', 500
-                # Возвращаем сокращенный URL
-                return f'{request.url_root}SU/{short_url}', 201
-
-# Определяем маршрут для перенаправления по короткому URL
-@app.route('/SU/<short_url>', methods=['GET'])
-def redirect_url(short_url):
-    # Создаем сокет для связи с сервером
+    # Создание сокета для подключения к серверу
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
-            # Подключаемся к серверу
+            # Попытка подключения к серверу
             s.connect((SERVER_IP, SERVER_PORT))
         except Exception as e:
-            # Если возникла ошибка, возвращаем ее
+            # В случае ошибки возвращается сообщение об ошибке
             return f'Не удалось подключиться к серверу: {str(e)}', 500
-        # Отправляем запрос на сервер
+        # Отправка запроса на получение существующего короткого URL
+        s.sendall(f'--file urls.data --query HGET short_urls {url}'.encode())
+        # Получение ответа от сервера
+        existing_url = s.recv(1024).decode()
+        existing_url = existing_url.replace('\n', '').replace('\r', '')
+        # Обработка ошибки или возврат существующего короткого URL
+        if existing_url == "Error.":
+            s.close()
+            return 'Error.', 501
+        if existing_url != "-> False":
+            s.close()
+            return f'{request.url_root}SU/{existing_url}'
+        # Генерация нового короткого URL, если существующего нет
+        while True:
+            short_url = generate_short_url()
+            s.sendall(f'--file urls.data --query HGET urls {short_url}'.encode())
+            existing_url = s.recv(1024).decode()
+            existing_url = existing_url.replace('\n', '').replace('\r', '')
+            if existing_url == "Error.":
+                s.close()
+                return 'Error.', 502
+            if existing_url == "-> False":
+                s.sendall(f'--file urls.data --query HSET urls {url} {short_url}'.encode())
+                if s.recv(1024).decode().replace('\n', '').replace('\r', '') == "Error.":
+                    s.close()
+                    return 'Error.', 503
+                s.sendall(f'--file urls.data --query HSET short_urls {short_url} {url}'.encode())
+                if s.recv(1024).decode().replace('\n', '').replace('\r', '') == "Error.":
+                    s.close()
+                    return 'Error.', 504
+                s.close()
+                return f'{request.url_root}SU/{short_url}'
+
+# Декоратор для обработки GET-запроса по пути '/SU/<short_url>'
+@app.route('/SU/<short_url>', methods=['GET'])
+def redirect_url(short_url):
+    # Создание сокета для подключения к серверу
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            # Попытка подключения к серверу
+            s.connect((SERVER_IP, SERVER_PORT))
+        except Exception as e:
+            # В случае ошибки возвращается сообщение об ошибке
+            return f'Не удалось подключиться к серверу: {str(e)}', 505
+        # Отправка запроса на получение оригинального URL
         s.sendall(f'--file urls.data --query HGET urls {short_url}'.encode())
-        # Получаем ответ от сервера
+        # Получение ответа от сервера
         url = s.recv(1024).decode()
         url = url.replace('\n', '').replace('\r', '')
-        # Если возникла ошибка, возвращаем ее
+        # Обработка ошибки или перенаправление на оригинальный URL
         if url == "Error.":
-            return 'Error.', 500
-    # Перенаправляем на исходный URL
+            s.close()
+            return 'Error.', 506
+        s.close()
     return redirect(url, code=302)
 
-# Запускаем приложение
 if __name__ == '__main__':
-    # Получаем IP-адрес и порт сервера
     SERVER_IP, SERVER_PORT = input("Введите IP-адрес и порт сервера (формат: myip:myport): ").split(':')
     SERVER_PORT = int(SERVER_PORT)
-    # Запускаем приложение в режиме отладки
     app.run(debug=True)
-========================================================================================================================================================================================
+==========================================================

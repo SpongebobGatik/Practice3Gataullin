@@ -76,8 +76,13 @@ void saveToFileQueue(Queue* queue, const char* filename, const char* basename, i
             fseek(file, *pos2, SEEK_SET);
         }
     }
-    free(queue->rear);
-    free(queue->front);
+    NodeQueue* currentNode = queue->front;
+    while (currentNode != NULL) {
+        NodeQueue* nextNode = currentNode->next;
+        free(currentNode->element);
+        free(currentNode);
+        currentNode = nextNode;
+    }
     free(queue);
     fclose(file);
     fclose(tempFile);
