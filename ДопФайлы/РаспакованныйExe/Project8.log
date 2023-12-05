@@ -1,17 +1,5 @@
-﻿  main.c
-C:\Users\Ms_Hlopets\Desktop\ПР3\Project8\main.c(390,50): warning C4267: функция: преобразование из "size_t" в "int"; возможна потеря данных
-  queue.c
-C:\Users\Ms_Hlopets\Desktop\ПР3\Project8\queue.c(124,28): warning C4267: функция: преобразование из "size_t" в "long"; возможна потеря данных
-  set.c
-C:\Users\Ms_Hlopets\Desktop\ПР3\Project8\set.c(79,33): warning C4028: формальный параметр 2 отличается от объявления
-C:\Users\Ms_Hlopets\Desktop\ПР3\Project8\set.c(109,37): warning C4028: формальный параметр 2 отличается от объявления
-C:\Users\Ms_Hlopets\Desktop\ПР3\Project8\set.c(192,28): warning C4267: функция: преобразование из "size_t" в "long"; возможна потеря данных
-  stack.c
-C:\Users\Ms_Hlopets\Desktop\ПР3\Project8\stack.c(114,28): warning C4267: функция: преобразование из "size_t" в "long"; возможна потеря данных
-  table.c
-C:\Users\Ms_Hlopets\Desktop\ПР3\Project8\table.c(77,39): warning C4028: формальный параметр 2 отличается от объявления
-C:\Users\Ms_Hlopets\Desktop\ПР3\Project8\table.c(86,38): warning C4028: формальный параметр 2 отличается от объявления
-C:\Users\Ms_Hlopets\Desktop\ПР3\Project8\table.c(171,12): warning C4267: =: преобразование из "size_t" в "int"; возможна потеря данных
-  Создание кода...
-C:\Users\Ms_Hlopets\Desktop\ПР3\Project8\main.c(398): warning C4716: handle_client: должна возвращать значение
+﻿  table.c
+C:\Users\Ms_Hlopets\Desktop\ПР3\Project8\table.c(78,39): warning C4028: формальный параметр 2 отличается от объявления
+C:\Users\Ms_Hlopets\Desktop\ПР3\Project8\table.c(92,38): warning C4028: формальный параметр 2 отличается от объявления
+C:\Users\Ms_Hlopets\Desktop\ПР3\Project8\table.c(183,12): warning C4267: =: преобразование из "size_t" в "int"; возможна потеря данных
   Project8.vcxproj -> C:\Users\Ms_Hlopets\Desktop\ПР3\Project8\x64\Debug\Project8.exe

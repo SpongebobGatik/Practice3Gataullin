@@ -47,13 +47,14 @@ void HSET(HashTable* ht, char* key, char* value) {
 	NodeHashTable* current = ht->hashTable[hash];
 	// Проверка уникальности ключа
 	while (current != NULL) {
-		if (strcmp(current->element, value) == 0) {
+		if (strcmp(current->key, key) == 0) {
 			return;
 		}
 		current = current->next;
 	}
 	// Новый узел
 	NodeHashTable* newNode = (NodeHashTable*)malloc(sizeof(NodeHashTable));
+	newNode->key = _strdup(key); // Сохранение ключа в узле
 	newNode->element = _strdup(value); // Копирование элемента в узел
 	newNode->hash = hash; // Сохранение хеша в узле
 	newNode->next = NULL; // Инициализация следующего узла как NULL
@@ -75,34 +76,46 @@ void HSET(HashTable* ht, char* key, char* value) {
 
 // Функция для получения элемента из хеш-таблицы
 char* HGET(HashTable* ht, const char* key) {
-	// Если найден элемент
-	if (ht->hashTable[calculateHashT(key)] != NULL) {
-		return ht->hashTable[calculateHashT(key)]->element;
+	int hash = calculateHashT(key); // Вычисление хеша ключа
+	NodeHashTable* current = ht->hashTable[hash];
+	// Поиск элемента по ключу с учетом коллизий
+	while (current != NULL) {
+		if (strcmp(current->key, key) == 0) { // Сравнение ключей
+			return current->element;
+		}
+		current = current->next; // Переход к следующему узлу в случае коллизии
 	}
 	return NULL;
 }
 
 // Функция для удаления элемента из хеш-таблицы
 void HDEL(HashTable* ht, const char* key) {
-	// Если найден элемент
-	if (ht->hashTable[calculateHashT(key)] != NULL) {
-		NodeHashTable* nodeToRemove = ht->hashTable[calculateHashT(key)]; // Узел для удаления
-		if (nodeToRemove == ht->head) { // Если узел является головой списка
-			ht->head = nodeToRemove->next; // Установка следующего узла как головы
+	int hash = calculateHashT(key); // Вычисление хеша ключа
+	NodeHashTable* current = ht->hashTable[hash];
+	NodeHashTable* nodeToRemove = NULL;
+	// Поиск элемента по ключу с учетом коллизий
+	while (current != NULL) {
+		if (strcmp(current->key, key) == 0) { // Сравнение ключей
+			nodeToRemove = current; // Если ключи совпадают, помечаем узел для удаления
+			break;
 		}
-		else {
-			if (nodeToRemove->prev != NULL) { // Если у узла есть предыдущий узел
-				nodeToRemove->prev->next = nodeToRemove->next; // Удаление узла из списка
-			}
+		current = current->next; // Переход к следующему узлу в случае коллизии
+	}
+	// Если узел найден, удаляем его
+	if (nodeToRemove != NULL) {
+		if (nodeToRemove->prev != NULL) { // Если у узла есть предыдущий узел
+			nodeToRemove->prev->next = nodeToRemove->next; // Удаление узла из списка
 		}
 		if (nodeToRemove->next != NULL) { // Если у узла есть следующий узел
 			nodeToRemove->next->prev = nodeToRemove->prev; // Удаление узла из списка
 		}
-		free(nodeToRemove->element);
-		free(nodeToRemove);
-		ht->hashTable[calculateHashT(key)] = NULL;
-		ht->size--;
-		return;
+		if (nodeToRemove == ht->hashTable[hash]) { // Если узел является первым в списке
+			ht->hashTable[hash] = nodeToRemove->next; // Обновление начала списка
+		}
+		free(nodeToRemove->key); // Освобождение памяти ключа
+		free(nodeToRemove->element); // Освобождение памяти элемента
+		free(nodeToRemove); // Освобождение памяти узла
+		ht->size--; // Уменьшение размера хеш-таблицы
 	}
 }
 
@@ -131,7 +144,6 @@ void saveToFileTable(HashTable* hashtable, const char* filename, const char* bas
 			// Добавление новую строку, если БД пуста
 			if (*status == 1) {
 				fseek(tempFile, *pos1 - 1, SEEK_SET);
-				printf("asd");
 				fprintf(tempFile, "\n");
 			}
 			fseek(file, *pos2, SEEK_SET);

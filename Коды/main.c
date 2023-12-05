@@ -10,92 +10,100 @@
 #include <ws2tcpip.h>
 #include <windows.h>
 #pragma comment(lib, "ws2_32.lib")
-#define PORT 6379
-#define BACKLOG 10
-#define BUFFER_SIZE 104857600
+#define PORT 6379 // Определение порта для сервера
+#define BACKLOG 10 // Определение максимального количества ожидающих подключений
+#define BUFFER_SIZE 104857600 // Определение размера буфера
 
-HANDLE mutex;
-DWORD WINAPI handle_client(LPVOID lpParam);
-void removeNewline(char* str);
+HANDLE mutex; // Объявление мьютекса
+DWORD WINAPI handle_client(LPVOID lpParam); // Объявление функции обработки клиента
 
 int main() {
     WSADATA wsa_data;
-    int result = WSAStartup(MAKEWORD(2, 2), &wsa_data);
-    SOCKET listen_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    struct sockaddr_in server_address;
+    int result = WSAStartup(MAKEWORD(2, 2), &wsa_data); // Инициализация библиотеки сокетов
+    SOCKET listen_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP); // Создание сокета для прослушивания
+    struct sockaddr_in server_address; // Структура для хранения адреса сервера
     server_address.sin_family = AF_INET;
     server_address.sin_addr.s_addr = htonl(INADDR_ANY);
     server_address.sin_port = htons(PORT);
-    result = bind(listen_socket, (struct sockaddr*)&server_address, sizeof(server_address));
-    result = listen(listen_socket, BACKLOG);
+    result = bind(listen_socket, (struct sockaddr*)&server_address, sizeof(server_address)); // Привязка сокета к адресу
+    result = listen(listen_socket, BACKLOG); // Начало прослушивания сокета
     printf("The server is running and waiting for connections on port %d\n", PORT);
-    mutex = CreateMutex(NULL, FALSE, NULL);
+    mutex = CreateMutex(NULL, FALSE, NULL); // Создание мьютекса
     while (1) {
-        SOCKET client_socket = accept(listen_socket, NULL, NULL);
-        CreateThread(NULL, 0, handle_client, (LPVOID)client_socket, 0, NULL);
+        SOCKET client_socket = accept(listen_socket, NULL, NULL); // Принятие подключения от клиента
+        CreateThread(NULL, 0, handle_client, (LPVOID)client_socket, 0, NULL); // Создание потока для обработки клиента
     }
-    closesocket(listen_socket);
-    WSACleanup();
+    closesocket(listen_socket); // Закрытие сокета прослушивания
+    WSACleanup(); // Очистка библиотеки сокетов
     return 0;
 }
 
 DWORD WINAPI handle_client(LPVOID lpParam) {
-    WaitForSingleObject(mutex, INFINITE);
-    SOCKET client_socket = (SOCKET)lpParam;
+    WaitForSingleObject(mutex, INFINITE); // Получение мьютекса
+    SOCKET client_socket = (SOCKET)lpParam; // Получение сокета клиента
     char* buffer = (char*)malloc(BUFFER_SIZE * sizeof(char));
     int bytes_received;
+    // Получение данных от клиента, пока клиент не закроет подключение
     while ((bytes_received = recv(client_socket, buffer, BUFFER_SIZE, 0)) > 0) {
-    buffer[bytes_received] = '\0';
-    char** argv = NULL;
-    int argc = 0;
-    char* token = strtok(buffer, " ");
-    while (token != NULL) {
-        char** temp = realloc(argv, sizeof(char*) * (argc + 1));
-        argv = temp;
-        argv[argc++] = token;
-        token = strtok(NULL, " ");
-    }
-    char* filename = NULL;
-    char* query = NULL;
-    char* key = NULL;
-    char* basename = NULL;
-    char* item = NULL;
-    int temp;
-    char* result = NULL;
-    if (argc < 4 || argc > 7) {
-        result = malloc(100);
-        sprintf(result, "Error.\n");
-        goto skip;
-    }
-    for (int i = 0; i < argc; i++) {
-        if (strcmp(argv[i], "--file") == 0 && i + 1 < argc) {
-            filename = argv[i + 1];
-        }
-        else if (strcmp(argv[i], "--query") == 0 && i + 1 < argc) {
-            query = argv[i + 1];
-            temp = i + 1;
-            basename = argv[i + 2];
-            if (i + 5 > argc) key = argv[i + 3];
-            else {
-                item = argv[i + 3];
-                key = argv[i + 4];
-                if (key == NULL || item == NULL) {
-                    result = malloc(100);
-                    sprintf(result, "Error.\n");
-                    goto skip;
-                }
-                removeNewline(key);
-                removeNewline(item);
+        buffer[bytes_received] = '\0'; // Добавление нуль-терминатора
+        // Удаление символов возврата каретки и новой строки
+        for (int i = 0; i < bytes_received; ++i) {
+            if (buffer[i] == '\r' || buffer[i] == '\n') {
+                buffer[i] = '\0';
+                break;
             }
-            if (key != NULL) removeNewline(key);
         }
-    }
-    removeNewline(basename);
-    int pos1 = 0;;
-    int pos2 = 0;;
-    int status = 0;;
-    if (filename != NULL && query != NULL) {
-        FILE* file = fopen(filename, "r");
+        char** argv = NULL;
+        int argc = 0;
+        char* token = strtok(buffer, " "); // Разбиение полученных данных на токены
+        while (token != NULL) {
+            char** temp = realloc(argv, sizeof(char*) * (argc + 1));
+            argv = temp;
+            argv[argc++] = token;
+            token = strtok(NULL, " ");
+        }
+        // Обработка полученных данных и выполнение соответствующих операций
+        char* filename = NULL; // Имя файла
+        char* query = NULL;
+        char* key = NULL; // Ключ (Объект)
+        char* basename = NULL; // Имя БД
+        char* item = NULL; // Объект
+        int temp; // Переменная, отвечающая за номер аргумента
+        char* result = NULL;
+        // Проверка количества аргументов
+        if (argc < 4 || argc > 7) {
+            result = malloc(100);
+            sprintf(result, "Error.\n");
+            goto skip;
+        }
+        // Цикл по аргументам
+        for (int i = 0; i < argc; i++) {
+            if (strcmp(argv[i], "--file") == 0 && i + 1 < argc) {
+                filename = argv[i + 1];
+            }
+            else if (strcmp(argv[i], "--query") == 0 && i + 1 < argc) {
+                query = argv[i + 1];
+                temp = i + 1;
+                basename = argv[i + 2];
+                if (i + 5 > argc) key = argv[i + 3];
+                else {
+                    item = argv[i + 3];
+                    key = argv[i + 4];
+                    // Проверка наличия ключа и элемента
+                    if (key == NULL || item == NULL) {
+                        result = malloc(100);
+                        sprintf(result, "Error.\n");
+                        goto skip;
+                    }
+                }
+            }
+        }
+        int pos1 = 0; // Переменная, отвечающая за позицию начала строки.
+        int pos2 = 0; // Переменная, отвечающая за позицию конца строки.
+        int status = 0; // Переменная-переключатель.
+        // Обработка каждой команды
+        if (filename != NULL && query != NULL) {
+            FILE* file = fopen(filename, "r");
         if (!file) {
             FILE* file = fopen(filename, "w");
         }
@@ -380,19 +388,12 @@ DWORD WINAPI handle_client(LPVOID lpParam) {
         result = malloc(100);
         sprintf(result, "Error.\n");
     }
-    int bytes_sent = send(client_socket, result, strlen(result), 0);
+    int bytes_sent = send(client_socket, result, strlen(result), 0); // Отправка результата клиенту
     }
     free(argv);
     free(result);
     }
     free(buffer);
-    closesocket(client_socket);
-    ReleaseMutex(mutex);
-}
-
-void removeNewline(char* str) {
-    if (str != NULL) {
-        size_t length = strcspn(str, "\n");
-        str[length] = '\0';
-    }
+    closesocket(client_socket); // Закрытие сокета клиента
+    ReleaseMutex(mutex); // Освобождение мьютекса
 }

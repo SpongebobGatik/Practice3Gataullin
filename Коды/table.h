@@ -2,6 +2,7 @@
 #define TABLE_H
 
 typedef struct NodeHashTable {
+    char* key;
     char* element;
     int hash;
     struct NodeHashTable* next;
