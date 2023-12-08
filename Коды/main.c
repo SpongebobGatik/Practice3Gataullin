@@ -71,7 +71,7 @@ DWORD WINAPI handle_client(LPVOID lpParam) {
         int temp; // Переменная, отвечающая за номер аргумента
         char* result = NULL;
         // Проверка количества аргументов
-        if (argc < 4 || argc > 7) {
+        if (argc < 4 || argc > 7 || argv[4] == NULL) {
             result = malloc(100);
             sprintf(result, "Error.\n");
             goto skip;

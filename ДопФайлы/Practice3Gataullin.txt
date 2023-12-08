@@ -76,7 +76,7 @@ DWORD WINAPI handle_client(LPVOID lpParam) {
         int temp; // Переменная, отвечающая за номер аргумента
         char* result = NULL;
         // Проверка количества аргументов
-        if (argc < 4 || argc > 7) {
+        if (argc < 4 || argc > 7 || argv[4] == NULL) {
             result = malloc(100);
             sprintf(result, "Error.\n");
             goto skip;
@@ -1032,7 +1032,7 @@ table.c
 #include <stdio.h> 
 #include <stdlib.h> 
 #include <string.h> 
-#define MAX_SIZE 100000
+#define MAX_SIZE 100000 
 
 // Функция подсчета слов в файле
 int countWordsInFileTable(const char* filename) {
@@ -1049,14 +1049,10 @@ int countWordsInFileTable(const char* filename) {
 // Функция для инициализации хеш-таблицы
 HashTable* initHashTable() {
 	HashTable* ht = (HashTable*)malloc(sizeof(HashTable));
-	ht->head = NULL;
-	ht->size = 0;
-	ht->tableSize = MAX_SIZE;
-	ht->hashTable = (NodeHashTable**)malloc(MAX_SIZE * sizeof(NodeHashTable*));
-	ht->keys = (char**)malloc(MAX_SIZE * sizeof(char*));
+	ht->nodes = (NodeHashTable**)malloc(MAX_SIZE * sizeof(NodeHashTable*));
+	ht->count = 0;
 	for (int i = 0; i < MAX_SIZE; i++) {
-		ht->hashTable[i] = NULL;
-		ht->keys[i] = NULL;
+		ht->nodes[i] = NULL;
 	}
 	return ht;
 }
@@ -1072,102 +1068,112 @@ int calculateHashT(const char* element) {
 
 // Функция для добавления элемента в хеш-таблицу
 void HSET(HashTable* ht, char* key, char* value) {
-	int hash = calculateHashT(key); // Вычисление хеша ключа
-	NodeHashTable* current = ht->hashTable[hash];
-	// Проверка уникальности ключа
+	int hash = calculateHashT(key);
+	// Создаем новый узел для хранения ключа и значения
+	NodeHashTable* newNode = (NodeHashTable*)malloc(sizeof(NodeHashTable));
+	newNode->key = _strdup(key);
+	newNode->element = _strdup(value);
+	newNode->next = NULL; // Устанавливаем указатель на следующий узел как NULL
+	newNode->prev = NULL; // Устанавливаем указатель на предыдущий узел как NULL
+	// Обработка коллизий и проверка на дубликаты ключей
+	NodeHashTable* current = ht->nodes[hash]; // Получаем узел по хеш-ключу
 	while (current != NULL) {
-		if (strcmp(current->key, key) == 0) {
+		if (strcmp(current->key, key) == 0) { // Если ключ уже существует
+			// Освобождаем память нового узла
+			free(newNode->key);
+			free(newNode->element);
+			free(newNode);
 			return;
 		}
-		current = current->next;
+		if (current->next == NULL) { // Если достигли конца цепочки
+			break;
+		}
+		current = current->next; // Переходим к следующему узлу
 	}
-	// Новый узел
-	NodeHashTable* newNode = (NodeHashTable*)malloc(sizeof(NodeHashTable));
-	newNode->key = _strdup(key); // Сохранение ключа в узле
-	newNode->element = _strdup(value); // Копирование элемента в узел
-	newNode->hash = hash; // Сохранение хеша в узле
-	newNode->next = NULL; // Инициализация следующего узла как NULL
-	newNode->prev = NULL; // Инициализация предыдущего узла как NULL
-	if (ht->hashTable[hash] == NULL) { // Если список для данного хеша пуст
-		ht->hashTable[hash] = newNode; // Установка нового узла как первого в списке
+	// Добавление нового узла
+	if (current == NULL) { // Если цепочка пуста
+		ht->nodes[hash] = newNode; // Устанавливаем новый узел как начало цепочки
 	}
 	else {
-		current = ht->hashTable[hash]; // Начало списка
-		while (current->next != NULL) { // Поиск последнего узла в списке
-			current = current->next;
-		}
-		current->next = newNode; // Добавление нового узла в конец списка
-		newNode->prev = current; // Установка предыдущего узла для нового узла
+		current->next = newNode; // Добавляем новый узел в конец цепочки
+		newNode->prev = current; // Устанавливаем предыдущий узел для нового узла
 	}
-	ht->size++; // Увеличение размера хеш-таблицы
-	ht->keys[ht->size - 1] = _strdup(key); // Сохранение ключа в массиве ключей
+	ht->count++;
 }
 
 // Функция для получения элемента из хеш-таблицы
 char* HGET(HashTable* ht, const char* key) {
-	int hash = calculateHashT(key); // Вычисление хеша ключа
-	NodeHashTable* current = ht->hashTable[hash];
-	// Поиск элемента по ключу с учетом коллизий
-	while (current != NULL) {
-		if (strcmp(current->key, key) == 0) { // Сравнение ключей
+	int hash = calculateHashT(key);
+	NodeHashTable* current = ht->nodes[hash]; // Получаем узел по хеш-ключу
+	while (current != NULL) { // Перебираем узлы в цепочке
+		if (strcmp(current->key, key) == 0) { // Если ключ совпадает
 			return current->element;
 		}
-		current = current->next; // Переход к следующему узлу в случае коллизии
+		current = current->next; // Переходим к следующему узлу
 	}
 	return NULL;
 }
 
 // Функция для удаления элемента из хеш-таблицы
 void HDEL(HashTable* ht, const char* key) {
-	int hash = calculateHashT(key); // Вычисление хеша ключа
-	NodeHashTable* current = ht->hashTable[hash];
+	int hash = calculateHashT(key);
+	NodeHashTable* current = ht->nodes[hash]; // Получаем узел по хеш-ключу
 	NodeHashTable* nodeToRemove = NULL;
-	// Поиск элемента по ключу с учетом коллизий
-	while (current != NULL) {
-		if (strcmp(current->key, key) == 0) { // Сравнение ключей
-			nodeToRemove = current; // Если ключи совпадают, помечаем узел для удаления
+
+	while (current != NULL) { // Перебираем узлы в цепочке
+		if (strcmp(current->key, key) == 0) { // Если ключ совпадает
+			nodeToRemove = current; // Устанавливаем узел для удаления
 			break;
 		}
-		current = current->next; // Переход к следующему узлу в случае коллизии
+		current = current->next; // Переходим к следующему узлу
 	}
-	// Если узел найден, удаляем его
+
 	if (nodeToRemove != NULL) {
 		if (nodeToRemove->prev != NULL) { // Если у узла есть предыдущий узел
-			nodeToRemove->prev->next = nodeToRemove->next; // Удаление узла из списка
+			nodeToRemove->prev->next = nodeToRemove->next; // Удаляем узел из цепочки
+		}
+		else {
+			ht->nodes[hash] = nodeToRemove->next; // Устанавливаем следующий узел как начало цепочки
 		}
 		if (nodeToRemove->next != NULL) { // Если у узла есть следующий узел
-			nodeToRemove->next->prev = nodeToRemove->prev; // Удаление узла из списка
+			nodeToRemove->next->prev = nodeToRemove->prev; // Устанавливаем предыдущий узел для следующего узла
 		}
-		if (nodeToRemove == ht->hashTable[hash]) { // Если узел является первым в списке
-			ht->hashTable[hash] = nodeToRemove->next; // Обновление начала списка
-		}
-		free(nodeToRemove->key); // Освобождение памяти ключа
-		free(nodeToRemove->element); // Освобождение памяти элемента
-		free(nodeToRemove); // Освобождение памяти узла
-		ht->size--; // Уменьшение размера хеш-таблицы
+		// Освобождаем память удаляемого узла
+		free(nodeToRemove->key);
+		free(nodeToRemove->element);
+		free(nodeToRemove);
+		ht->count--;
 	}
 }
 
-// Функция сохранения изменений в файл
 void saveToFileTable(HashTable* hashtable, const char* filename, const char* basename, int* pos1, int* pos2, int* status) {
 	FILE* file = fopen(filename, "r");
 	FILE* tempFile = fopen("temp.data", "w");
-	int ch; // Символ, который требуется записать
-	fseek(file, 0, SEEK_SET); // Установка курсора в начало
-	fseek(tempFile, 0, SEEK_SET); // Установка курсора в начало
-	while ((ch = fgetc(file)) != EOF) { // Цикл, пока не выдаст ошибку при записи
-		fputc(ch, tempFile); // Запись символа в поток
-		if (ftell(tempFile) == *pos1 - 2 && *status == 2) { // Если пустая БД, то добавляем табуляцию перед элементом с ключом
-			fprintf(tempFile, "\t%s\t%s", hashtable->hashTable[calculateHashT(hashtable->keys[0])]->element, hashtable->keys[0]);
-		}
-		else if (ftell(tempFile) == *pos1) {
+	int ch;
+	int count = 0;
+	fseek(file, 0, SEEK_SET);
+	fseek(tempFile, 0, SEEK_SET);
+	while ((ch = fgetc(file)) != EOF) {
+		fputc(ch, tempFile);
+		if (ftell(tempFile) == *pos1 || (ftell(tempFile) == *pos1 - 2 && *status == 2)) {
+			// Если пустая БД, то добавляем табуляцию перед элементом с ключом
+			if (hashtable->count == 1 && *status == 2) {
+				fprintf(tempFile, "\t");
+			}
 			// Проходимся по всем элементам
-			for (int i = 0; i < hashtable->size; i++) {
-				if (i == hashtable->size - 1) { // Если нет следующего элемента с ключом, то добавляем строку
-					fprintf(tempFile, "%s\t%s\n", hashtable->hashTable[calculateHashT(hashtable->keys[i])]->element, hashtable->keys[i]);
-				}
-				else { // Иначе добавляем после элемента с ключом табуляцию
-					fprintf(tempFile, "%s\t%s\t", hashtable->hashTable[calculateHashT(hashtable->keys[i])]->element, hashtable->keys[i]);
+			for (int i = 0; i < MAX_SIZE; i++) {
+				NodeHashTable* currentNode = hashtable->nodes[i];
+				while (currentNode != NULL) {
+					fprintf(tempFile, "%s\t%s", currentNode->element, currentNode->key);
+					count++;
+					if (count != hashtable->count) {
+						fprintf(tempFile, "\t"); // Добавляем табуляцию после элемента с ключом
+					}
+					else {
+						fprintf(tempFile, "\n"); // Если нет следующего элемента с ключом, то добавляем строку
+						break;
+					}
+					currentNode = currentNode->next;
 				}
 			}
 			// Добавление новую строку, если БД пуста
@@ -1178,9 +1184,6 @@ void saveToFileTable(HashTable* hashtable, const char* filename, const char* bas
 			fseek(file, *pos2, SEEK_SET);
 		}
 	}
-	free(hashtable->hashTable);
-	free(hashtable->keys);
-	free(hashtable);
 	fclose(file);
 	fclose(tempFile);
 	remove(filename);
@@ -1190,6 +1193,10 @@ void saveToFileTable(HashTable* hashtable, const char* filename, const char* bas
 // Функция загрузки БД в структуру
 HashTable* loadFromFileTable(const char* filename, const char* basename, int* pos1, int* pos2, int* status) {
 	FILE* file = fopen(filename, "r");
+	// Проверка наличия файла
+	if (file == NULL) {
+		return NULL;
+	}
 	int num_lines = countWordsInFileTable(filename); // Переменная, отвечающая за количество слов
 	char** line = malloc(num_lines * sizeof(char*));
 	for (int i = 0; i < num_lines; i++) line[i] = malloc(10000 * sizeof(char));
@@ -1245,17 +1252,13 @@ table.h
 typedef struct NodeHashTable {
     char* key;
     char* element;
-    int hash;
     struct NodeHashTable* next;
     struct NodeHashTable* prev;
 } NodeHashTable;
 
 typedef struct HashTable {
-    NodeHashTable* head;
-    int size;
-    NodeHashTable** hashTable;
-    int tableSize;
-    char** keys;
+    NodeHashTable** nodes;
+    int count;
 } HashTable;
 
 HashTable* initHashTable();
@@ -1266,9 +1269,9 @@ void HDEL(HashTable* hashtable, char* key);
 
 char* HGET(HashTable* hashtable, char* key);
 
-void saveToFileTable(HashTable* hashtable, const char* filename, const char* basename, int *pos1, int *pos2, int *status);
+void saveToFileTable(HashTable* hashtable, const char* filename, const char* basename, int* pos1, int* pos2, int* status);
 
-HashTable* loadFromFileTable(const char* filename, const char* basename, int *pos1, int *pos2, int *status);
+HashTable* loadFromFileTable(const char* filename, const char* basename, int* pos1, int* pos2, int* status);
 
 #endif
 ==========================================================
